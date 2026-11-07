@@ -1,0 +1,12 @@
+{
+  "Status": "FSR-API-04-01-00",
+  "ResultInfo": {"page": "1", "per_page": "20", "total_count": "5"},
+  "Message": "Ok. Search successful",
+  "Data": [
+    {"Status": "Authorised", "Reference Number": "500001", "Type of business or Individual": "Firm", "Name": "Acme Payments Ltd"},
+    {"Status": "Authorised", "Reference Number": "500002", "Type of business or Individual": "Firm", "Name": "Acme Payments Limited"},
+    {"Status": "Authorised", "Reference Number": "500003", "Type of business or Individual": "Firm", "Name": "ACME PAYMENTS LTD"},
+    {"Status": "Registered", "Reference Number": "500004", "Type of business or Individual": "Firm", "Name": "Acme Payments"},
+    {"Status": "Authorised", "Reference Number": "500005", "Type of business or Individual": "Firm", "Name": "Acme Payments plc"}
+  ]
+}
