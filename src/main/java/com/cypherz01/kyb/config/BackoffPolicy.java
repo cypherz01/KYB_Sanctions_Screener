@@ -18,13 +18,35 @@ import java.util.function.DoubleSupplier;
  */
 public class BackoffPolicy {
 
-    public BackoffPolicy(Duration base, Duration max, DoubleSupplier random) {}
+    /** 2^30 x any sane base delay already exceeds any sane cap; stops the shift overflowing. */
+    private static final int MAX_EXPONENT = 30;
+
+    private final long baseMillis;
+    private final long maxMillis;
+    private final DoubleSupplier random;
+
+    public BackoffPolicy(Duration base, Duration max, DoubleSupplier random) {
+        this.baseMillis = base.toMillis();
+        this.maxMillis = max.toMillis();
+        this.random = random;
+    }
 
     /**
      * @param attempt 1-based number of the attempt that just failed
      * @param upstreamHint server-provided wait, if any
      */
     public Duration delayFor(int attempt, Optional<Duration> upstreamHint) {
-        throw new UnsupportedOperationException("not implemented yet");
+        if (upstreamHint.isPresent()) {
+            return Duration.ofMillis(Math.min(upstreamHint.get().toMillis(), maxMillis));
+        }
+        int exponent = Math.min(Math.max(attempt, 1) - 1, MAX_EXPONENT);
+        long exponential = Math.min(saturatingShift(baseMillis, exponent), maxMillis);
+        long fixedHalf = exponential / 2;
+        double r = Math.clamp(random.getAsDouble(), 0.0, 1.0);
+        return Duration.ofMillis(fixedHalf + Math.round((exponential - fixedHalf) * r));
+    }
+
+    private static long saturatingShift(long value, int exponent) {
+        return value > (Long.MAX_VALUE >> exponent) ? Long.MAX_VALUE : value << exponent;
     }
 }
