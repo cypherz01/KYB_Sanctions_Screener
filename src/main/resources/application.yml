@@ -67,6 +67,56 @@ kyb:
     zone: Europe/London
     # Off by default so tests and IDE runs never download ~380 MB. docker-compose turns it on.
     import-on-startup-if-empty: ${KYB_SANCTIONS_IMPORT_ON_STARTUP:false}
+  matching:
+    # Lists are written in normalised form (lower case, no dots or apostrophes).
+    honorifics: [mr, mrs, ms, miss, mx, dr, prof, professor, sir, dame, lord, lady, hon, rev, revd,
+                 sheikh, sheik, shaikh, haji, hajji]
+    # Removed from the END of organisation names, repeatedly, longest phrase first.
+    legal-forms: [public limited company, limited liability company, limited liability partnership,
+                  joint stock company, sdn bhd, ltd, limited, plc, llp, llc, lp, inc, incorporated,
+                  corp, corporation, co, company, gmbh, ag, sa, sas, sarl, srl, spa, bv, nv, oy, ab,
+                  asa, kft, sro, ooo, oao, zao, pao, ao, jsc, ojsc, cjsc, pjsc, fze, fzco, fzc, pte,
+                  pty, bhd]
+    # Removed from the START of organisation names: only forms that are written first, so names
+    # such as "Co-operative Bank" keep their first word.
+    leading-legal-forms: [the, ooo, oao, zao, pao, ao, jsc, ojsc, cjsc, pjsc, tov, pt]
+    weights:
+      jaro-winkler: 0.30
+      token-overlap: 0.15
+      phonetic: 0.15
+      alignment: 0.40
+    tokens:
+      initial-similarity: 0.70
+      phonetic-similarity: 0.90
+      extra-token-penalty: 0.10
+    bands:
+      strong: 0.90
+      possible: 0.80
+    birth-date:
+      exact-boost: 0.05
+      partial-boost: 0.02
+      year-tolerance: 1
+      mismatch-penalty: 0.25
+    country:
+      match-boost: 0.03
+      mismatch-penalty: 0.05
+    retrieval:
+      trigram-threshold: 0.30
+      max-candidates: 50
+    max-matches: 10
+    # OpenSanctions source dataset ids (verified 2026-11-07) -> labels shown in results.
+    source-list-labels:
+      gb_fcdo_sanctions: UK FCDO
+      gb_hmt_invbans: UK HMT investment bans
+      eu_fsf: EU
+      eu_sanctions: EU
+      eu_journal_sanctions: EU Official Journal
+      us_ofac_sdn: US OFAC SDN
+      us_ofac_cons: US OFAC non-SDN
+      us_trade_csl: US Consolidated Screening List
+      un_sc_sanctions: UN Security Council
+      ch_seco_sanctions: Switzerland SECO
+      ua_nsdc_sanctions: Ukraine NSDC
 
 # JSON (ECS) console logging is switched on via LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
 # in docker-compose; local runs and tests keep human-readable logs.

@@ -25,6 +25,8 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <resilience4j.version>2.3.0</resilience4j.version>
         <wiremock.version>3.13.1</wiremock.version>
+        <commons-text.version>1.13.0</commons-text.version>
+        <icu4j.version>76.1</icu4j.version>
         <surefire.excludedGroups>smoke</surefire.excludedGroups>
         <surefire.groups></surefire.groups>
     </properties>
@@ -90,6 +92,22 @@
             <groupId>io.github.resilience4j</groupId>
             <artifactId>resilience4j-micrometer</artifactId>
             <version>${resilience4j.version}</version>
+        </dependency>
+
+        <!-- Name matching (spec §8): Jaro-Winkler, Double Metaphone, script transliteration -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>${commons-text.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ibm.icu</groupId>
+            <artifactId>icu4j</artifactId>
+            <version>${icu4j.version}</version>
         </dependency>
 
         <!-- Caching (L1, in-process; L2 is the Postgres cache_entry table) -->

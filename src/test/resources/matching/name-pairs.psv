@@ -1,0 +1,62 @@
+# Spec §8.4 name-matching fixtures. Written before tuning; the matcher is tuned to these, never the reverse.
+#
+# expect:  STRONG = must be a STRONG match
+#          MATCH  = must be retained (POSSIBLE or STRONG)
+#          WEAK   = must NOT be STRONG (POSSIBLE or discarded both acceptable); excluded from precision/recall
+#          NONE   = must be discarded (below POSSIBLE)
+# type: PERSON | ORGANISATION | ANY. Multi-valued cells use ';'. Empty cell = unknown.
+#
+# id|expect|type|subject|subject_dob|subject_country|candidate|candidate_schema|candidate_dobs|candidate_countries|note
+exact-1|STRONG|PERSON|Ivan Petrov|||Ivan Petrov|Person|||exact
+exact-2|STRONG|ORGANISATION|Bank Rossiya|||Bank Rossiya|Company|||exact company
+case-1|STRONG|PERSON|IVAN PETROV|||Ivan Petrov|Person|||case only
+order-1|STRONG|PERSON|PETROV, Ivan|||Ivan Petrov|Person|||Companies House surname-first format
+order-2|STRONG|PERSON|Petrov Ivan|||Ivan Petrov|Person|||reversed order
+diacritics-1|STRONG|PERSON|Hans Müller|||Hans Muller|Person|||diacritic stripped
+diacritics-2|MATCH|PERSON|Hans Mueller|||Hans Müller|Person|||German ue spelling vs umlaut
+diacritics-3|MATCH|PERSON|Hans Mueller|||Hans Muller|Person|||ue vs u
+diacritics-4|STRONG|PERSON|José Hernández|||Jose Hernandez|Person|||Spanish accents
+translit-1|MATCH|PERSON|Mohammed Al-Rashid|||Muhammad Al Rashid|Person|||Arabic name romanisation
+translit-2|MATCH|PERSON|Mohamed Al Rashid|||Muhammad Al-Rashid|Person|||Arabic name romanisation
+translit-3|MATCH|PERSON|Mohammed Al Rashid|||Mohamed Al Rashid|Person|||Arabic name romanisation
+translit-4|MATCH|PERSON|Aleksandr Ivanov|||Alexander Ivanov|Person|||Russian romanisation ks vs x
+translit-5|STRONG|PERSON|Иван Петров|||Ivan Petrov|Person|||Cyrillic original vs Latin
+translit-6|STRONG|PERSON|Александр Иванов|||Aleksandr Ivanov|Person|||Cyrillic original vs Latin
+translit-7|MATCH|PERSON|Gennady Timchenko|||Gennadiy Timchenko|Person|||Russian romanisation y vs iy
+translit-8|MATCH|PERSON|Yevgeny Prigozhin|||Evgeny Prigozhin|Person|||Russian romanisation ye vs e
+middle-1|MATCH|PERSON|Ivan Petrov|||Ivan Sergeyevich Petrov|Person|||patronymic only on the list
+middle-2|MATCH|PERSON|John Michael Smith|1955-01||John Smith|Person|1955-01-01||middle name only on the subject
+initials-1|WEAK|PERSON|J. Smith|||John Smith|Person|||initial: weak at most
+initials-2|WEAK|PERSON|I Petrov|||Ivan Petrov|Person|||initial: weak at most
+typo-1|MATCH|PERSON|Ivan Petrof|||Ivan Petrov|Person|||one-letter substitution
+typo-2|MATCH|PERSON|Vladimir Putim|||Vladimir Putin|Person|||one-letter substitution
+typo-3|MATCH|PERSON|Ivan Petorv|||Ivan Petrov|Person|||transposition
+typo-4|MATCH|ORGANISATION|Rosneft Trding|||Rosneft Trading|Company|||missing letter
+common-1|NONE|PERSON|John Smith|1980-04||John Smith|Person|1955-01-01||common name, different person (DOB)
+common-2|STRONG|PERSON|John Smith|1955-01||John Smith|Person|1955-01-01||common name, same DOB
+dob-1|NONE|PERSON|Ivan Petrov|1985-06||Ivan Petrov|Person|1971-03-14||same name, birth years 14 apart
+dob-2|STRONG|PERSON|Ivan Petrov|1971-03||Ivan Petrov|Person|1971-03-14||same name, same month of birth
+dob-3|STRONG|PERSON|Ivan Petrov|1972-01||Ivan Petrov|Person|1971-03-14||one year apart: within tolerance
+dob-4|STRONG|PERSON|Ivan Petrov|1985-06||Ivan Petrov|Person|1971-03-14;1985||list gives two possible years
+suffix-1|STRONG|ORGANISATION|Acme Trading Ltd|||Acme Trading LLC|Company|||different legal forms
+suffix-2|STRONG|ORGANISATION|ACME TRADING LIMITED|||Acme Trading|Company|||legal form only on subject
+suffix-3|STRONG|ORGANISATION|Romashka LLC|||OOO Romashka|Company|||Russian form written first
+suffix-4|STRONG|ORGANISATION|Repsol S.A.|||Repsol|Company|||dotted legal form
+suffix-5|STRONG|ORGANISATION|The Acme Group plc|||Acme Group|Company|||leading article and plc
+ampersand-1|STRONG|ORGANISATION|Smith & Sons Holdings Ltd|||Smith and Sons Holdings|Company|||& vs and
+honorific-1|STRONG|PERSON|Dr. Ivan Petrov|||Ivan Petrov|Person|||title removed
+honorific-2|STRONG|PERSON|Sheikh Mohammed Al-Rashid|||Mohammed Al Rashid|Person|||title removed
+country-1|STRONG|PERSON|Ivan Petrov||RU|Ivan Petrov|Person||ru|nationality agrees
+nonmatch-1|NONE|PERSON|Ivan Petrov|||Ivan Drago|Person|||shares first name only
+nonmatch-2|NONE|PERSON|John Smith|||John Brown|Person|||shares first name only
+nonmatch-3|NONE|PERSON|Mohammed Ali|||Mohammed Hassan|Person|||shares first name only
+nonmatch-4|NONE|PERSON|Olga Petrova|||Ivan Petrov|Person|||related surname, different person
+nonmatch-5|NONE|ORGANISATION|Acme Trading Ltd|||Global Trading LLC|Company|||shares one word
+nonmatch-6|NONE|ORGANISATION|Bank Rossiya|||Bank Saint Petersburg|Company|||shares one word
+nonmatch-7|NONE|ORGANISATION|Rosneft Trading|||Gazprom Trading|Company|||shares one word
+nonmatch-8|NONE|PERSON|Maria Gonzalez|||Mario Gomez|Person|||similar-looking, different names
+single-1|WEAK|PERSON|Petrov|||Ivan Petrov|Person|||surname only: weak at most
+type-1|NONE|PERSON|Acme Trading|||Acme Trading|Company|||person never matches a company
+type-2|NONE|ORGANISATION|Ivan Petrov|||Ivan Petrov|Person|||company never matches a person
+type-3|STRONG|ANY|Acme Trading|||Acme Trading|Company|||unknown type matches anything
+type-4|STRONG|PERSON|Ivan Petrov|||Ivan Petrov|LegalEntity|||LegalEntity may be a person
