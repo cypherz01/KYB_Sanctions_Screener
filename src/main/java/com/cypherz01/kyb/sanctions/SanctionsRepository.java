@@ -1,5 +1,8 @@
 package com.cypherz01.kyb.sanctions;
 
+import com.cypherz01.kyb.matching.NameNormaliser;
+import com.cypherz01.kyb.matching.NormalisedName;
+import com.cypherz01.kyb.matching.SubjectType;
 import com.cypherz01.kyb.sanctions.model.EntityName;
 import com.cypherz01.kyb.sanctions.model.SanctionsEntityRecord;
 import java.sql.Connection;
@@ -39,8 +42,9 @@ public class SanctionsRepository {
 
     private static final String INSERT_NAME =
             """
-            INSERT INTO sanctions_name (entity_id, dataset_version_id, name_original, name_kind, is_alias)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO sanctions_name (entity_id, dataset_version_id, name_original, name_kind, is_alias,
+                name_normalised, tokens, name_phonetic)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final RowMapper<DatasetVersion> VERSION = (rs, i) -> new DatasetVersion(
@@ -58,10 +62,12 @@ public class SanctionsRepository {
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
+    private final NameNormaliser normaliser;
 
-    public SanctionsRepository(JdbcTemplate jdbc, TransactionTemplate tx) {
+    public SanctionsRepository(JdbcTemplate jdbc, TransactionTemplate tx, NameNormaliser normaliser) {
         this.jdbc = jdbc;
         this.tx = tx;
+        this.normaliser = normaliser;
     }
 
     /**
@@ -133,9 +139,18 @@ public class SanctionsRepository {
 
             List<Object[]> names = new ArrayList<>();
             for (int i = 0; i < batch.size(); i++) {
+                SubjectType type = SubjectType.forSchema(batch.get(i).schema());
                 for (EntityName n : batch.get(i).names()) {
+                    NormalisedName nn = normaliser.normalise(n.value(), type);
                     names.add(new Object[] {
-                        ids.get(i), versionId, n.value(), n.kind().name(), n.isAlias()
+                        ids.get(i),
+                        versionId,
+                        n.value(),
+                        n.kind().name(),
+                        n.isAlias(),
+                        nn.normalised(),
+                        nn.tokens().toArray(String[]::new),
+                        nn.phoneticKey()
                     });
                 }
             }
@@ -154,13 +169,14 @@ public class SanctionsRepository {
                     """
                     UPDATE sanctions_dataset_version
                        SET status = 'COMPLETED', is_active = TRUE, checksum = ?, entity_count = ?, name_count = ?,
-                           finished_at = ?
+                           finished_at = ?, normaliser_version = ?
                      WHERE id = ? AND status = 'LOADING'
                     """,
                     checksum,
                     entityCount,
                     nameCount,
                     utc(finishedAt),
+                    NameNormaliser.VERSION, // names were normalised as they were inserted
                     versionId);
             if (updated != 1) {
                 // e.g. recovered as interrupted meanwhile. Roll back so the old version stays active.
