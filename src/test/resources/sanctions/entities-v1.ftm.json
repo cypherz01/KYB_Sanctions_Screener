@@ -1,0 +1,13 @@
+{"id":"NK-person-ivan","caption":"Ivan Petrov","schema":"Person","referents":["gb-fcdo-123"],"datasets":["gb_fcdo_sanctions","eu_fsf"],"first_seen":"2024-03-01T10:00:00","last_seen":"2026-11-07T12:00:00","last_change":"2026-10-01T09:00:00","properties":{"name":["Ivan Petrov","Иван Петров"],"alias":["Ivan Petroff","Ivan Petrov"],"weakAlias":["Vanya"],"previousName":["Ivan Sidorov"],"firstName":["Ivan"],"lastName":["Petrov"],"birthDate":["1971-03-14","1971"],"nationality":["RU"],"citizenship":["ru","cy"],"country":["ru"],"topics":["sanction"],"programId":["GB-RUS","EU-UKR"]},"target":true}
+{"id":"NK-co-acme","caption":"Acme Trading LLC","schema":"Company","datasets":["us_ofac_sdn"],"properties":{"name":["Acme Trading LLC"],"country":["ae"],"jurisdiction":["ru"],"mainCountry":["ru"],"topics":["sanction"],"programId":["US-RUSSIA-EO14024"]},"target":true}
+{"id":"NK-org-front","caption":"Front Holdings","schema":"Organization","datasets":["un_sc_sanctions"],"properties":{"name":["Front Holdings"],"alias":["FH Group"],"topics":["export.control","sanction"]},"target":true}
+{"id":"NK-le-shell","caption":"Shell Entity 77","schema":"LegalEntity","datasets":["eu_fsf"],"properties":{"name":["Shell Entity 77"],"topics":["sanction.linked"]},"target":true}
+{"id":"NK-person-maria","caption":"Maria Gonzalez","schema":"Person","datasets":["us_ofac_sdn"],"properties":{"firstName":["Maria"],"middleName":["Elena"],"lastName":["Gonzalez"],"birthDate":["1980-05"],"topics":["sanction"]},"target":true}
+{"id":"NK-person-relative","caption":"Olga Petrova","schema":"Person","datasets":["gb_fcdo_sanctions"],"properties":{"name":["Olga Petrova"]},"target":false}
+{"id":"NK-person-counter","caption":"John Western","schema":"Person","datasets":["ru_mfa_stoplist"],"properties":{"name":["John Western"],"topics":["sanction.counter"]},"target":true}
+{"id":"NK-co-debarred","caption":"Debarred Builders Inc","schema":"Company","datasets":["wb_debarred"],"properties":{"name":["Debarred Builders Inc"],"topics":["debarment"]},"target":true}
+{"id":"NK-vessel","caption":"Abrau","schema":"Vessel","datasets":["eu_sanctions_map"],"properties":{"name":["Abrau"],"topics":["sanction"],"imoNumber":["IMO9422964"]},"target":true}
+{"id":"NK-sanction-1","caption":"Sanction","schema":"Sanction","datasets":["gb_fcdo_sanctions"],"properties":{"entity":["NK-person-ivan"],"program":["Russia"],"authority":["FCDO"]},"target":false}
+{"id":"addr-1","caption":"1 Red Square, Moscow","schema":"Address","datasets":["gb_fcdo_sanctions"],"properties":{"full":["1 Red Square, Moscow"],"country":["ru"]},"target":false}
+
+{"id":"NK-broken","schema":"Person","properties":{"name":["Truncated

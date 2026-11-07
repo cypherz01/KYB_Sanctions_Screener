@@ -24,10 +24,13 @@ services:
       - path: .env
         required: false
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/kyb
+      # reWriteBatchedInserts: the driver sends each insert batch as multi-row INSERTs (sanctions import)
+      DB_URL: jdbc:postgresql://postgres:5432/kyb?reWriteBatchedInserts=true
       DB_USER: ${DB_USER:-kyb}
       DB_PASSWORD: ${DB_PASSWORD:-kyb}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      # First start with an empty database loads the OpenSanctions data (~380 MB download) in the background
+      KYB_SANCTIONS_IMPORT_ON_STARTUP: "true"
     ports:
       - "8080:8080"
 

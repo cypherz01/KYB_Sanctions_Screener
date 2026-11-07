@@ -2,7 +2,7 @@ spring:
   application:
     name: kyb-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/kyb}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kyb?reWriteBatchedInserts=true}
     username: ${DB_USER:kyb}
     password: ${DB_PASSWORD:kyb}
   flyway:
@@ -45,6 +45,28 @@ kyb:
       max-retries: 3
       base-delay: 500ms
       max-delay: 10s
+  sanctions:
+    # Bulk data only, never the hosted API (spec §5.3). The index names the current export version,
+    # the file URL (a 307 to a versioned artifact) and its SHA-1.
+    index-url: https://data.opensanctions.org/datasets/latest/sanctions/index.json
+    resource-name: entities.ftm.json
+    schemas: [Person, Company, Organization, LegalEntity]
+    # The file also holds related-but-not-sanctioned people, counter-sanctions, debarments and
+    # export-control entries. Only sanctioned (or sanction-linked) entities are screened.
+    topics: [sanction, sanction.linked]
+    batch-size: 1000
+    # Active + previous versions kept so past checks can be replayed against their exact data (M6).
+    keep-versions: 3
+    max-malformed-lines: 100
+    connect-timeout: 10s
+    # Index: limit for the whole request. Download: abort only if no bytes arrive for this long, so a
+    # healthy multi-minute transfer is never cut off but a stalled one cannot hold the import slot.
+    read-timeout: 60s
+    # Upstream re-exports roughly every 6 hours. Nightly is enough for v1. "-" disables it.
+    cron: ${KYB_SANCTIONS_IMPORT_CRON:0 30 3 * * *}
+    zone: Europe/London
+    # Off by default so tests and IDE runs never download ~380 MB. docker-compose turns it on.
+    import-on-startup-if-empty: ${KYB_SANCTIONS_IMPORT_ON_STARTUP:false}
 
 # JSON (ECS) console logging is switched on via LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
 # in docker-compose; local runs and tests keep human-readable logs.

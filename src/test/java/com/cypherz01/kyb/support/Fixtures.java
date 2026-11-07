@@ -10,11 +10,16 @@ public final class Fixtures {
     private Fixtures() {}
 
     public static String read(String classpathResource) {
+        return new String(bytes(classpathResource), StandardCharsets.UTF_8);
+    }
+
+    /** Exact bytes, for fixtures whose checksum matters. */
+    public static byte[] bytes(String classpathResource) {
         try (InputStream in = Fixtures.class.getClassLoader().getResourceAsStream(classpathResource)) {
             if (in == null) {
                 throw new IllegalArgumentException("Missing fixture: " + classpathResource);
             }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            return in.readAllBytes();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

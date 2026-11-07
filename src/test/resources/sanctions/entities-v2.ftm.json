@@ -1,0 +1,3 @@
+{"id":"NK-person-ivan","caption":"Ivan Petrov","schema":"Person","datasets":["gb_fcdo_sanctions","eu_fsf"],"properties":{"name":["Ivan Petrov"],"birthDate":["1971-03-14"],"nationality":["ru"],"topics":["sanction"],"programId":["GB-RUS"]},"target":true}
+{"id":"NK-org-front","caption":"Front Holdings","schema":"Organization","datasets":["un_sc_sanctions"],"properties":{"name":["Front Holdings"],"topics":["sanction"]},"target":true}
+{"id":"NK-person-ali","caption":"Ali Hassan","schema":"Person","datasets":["un_sc_sanctions"],"properties":{"name":["Ali Hassan"],"alias":["Ali Hasan"],"birthDate":["1965"],"nationality":["sy"],"topics":["sanction"]},"target":true}
