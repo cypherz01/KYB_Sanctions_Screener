@@ -141,6 +141,56 @@ class OpenSanctionsSourceTest {
         assertThatThrownBy(() -> source.open(d, in -> in.readAllBytes())).isInstanceOf(SanctionsSourceException.class);
     }
 
+    // Added in M2 green after the full-dataset smoke test failed: Spring's JDK request factory
+    // applies its read timeout to the whole exchange and closed the 380 MB body after 60 s.
+
+    @Test
+    void aDownloadLongerThanTheReadTimeoutCompletesWhileBytesKeepArriving() {
+        OpenSanctionsSource shortTimeout = sourceWithReadTimeout(Duration.ofMillis(600));
+        byte[] body = Fixtures.bytes(FIXTURE);
+        stubArtifact(aResponse().withBody(body).withChunkedDribbleDelay(8, 1600)); // ~200 ms gaps, 1.6 s total
+
+        byte[] streamed = shortTimeout.open(artifact(), in -> in.readAllBytes());
+
+        assertThat(streamed).isEqualTo(body);
+    }
+
+    @Test
+    void aStalledDownloadFailsAfterTheReadTimeoutWithoutData() {
+        OpenSanctionsSource shortTimeout = sourceWithReadTimeout(Duration.ofMillis(300));
+        stubArtifact(aResponse().withBody(Fixtures.bytes(FIXTURE)).withChunkedDribbleDelay(2, 3000)); // 1.5 s gap
+
+        assertThatThrownBy(() -> shortTimeout.open(artifact(), in -> in.readAllBytes()))
+                .isInstanceOf(SanctionsSourceException.class)
+                .hasMessageContaining("stalled");
+    }
+
+    private OpenSanctionsSource sourceWithReadTimeout(Duration readTimeout) {
+        SanctionsProperties p = new SanctionsProperties(
+                URI.create(wm.baseUrl() + OpenSanctionsStubs.INDEX_PATH),
+                "entities.ftm.json",
+                Set.of("Person"),
+                Set.of("sanction"),
+                100,
+                3,
+                10,
+                Duration.ofSeconds(2),
+                readTimeout,
+                "-",
+                "Europe/London",
+                false);
+        return new OpenSanctionsSource(OpenSanctionsSource.buildRestClient(RestClient.builder(), p), p, meters);
+    }
+
+    private void stubArtifact(com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder response) {
+        wm.stubFor(get(urlPathEqualTo(OpenSanctionsStubs.artifactPath(VERSION))).willReturn(response));
+    }
+
+    private DatasetDescriptor artifact() {
+        return new DatasetDescriptor(
+                VERSION, URI.create(wm.baseUrl() + OpenSanctionsStubs.artifactPath(VERSION)), null, null);
+    }
+
     @Test
     void logsAndTimesEachExternalCall(CapturedOutput output) {
         OpenSanctionsStubs.publish(wm.getRuntimeInfo().getWireMock(), wm.baseUrl(), VERSION, FIXTURE);

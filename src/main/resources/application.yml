@@ -2,7 +2,7 @@ spring:
   application:
     name: kyb-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/kyb}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kyb?reWriteBatchedInserts=true}
     username: ${DB_USER:kyb}
     password: ${DB_PASSWORD:kyb}
   flyway:
@@ -59,7 +59,8 @@ kyb:
     keep-versions: 3
     max-malformed-lines: 100
     connect-timeout: 10s
-    # Time allowed for response headers. The body itself streams for as long as it needs.
+    # Index: limit for the whole request. Download: abort only if no bytes arrive for this long, so a
+    # healthy multi-minute transfer is never cut off but a stalled one cannot hold the import slot.
     read-timeout: 60s
     # Upstream re-exports roughly every 6 hours. Nightly is enough for v1. "-" disables it.
     cron: ${KYB_SANCTIONS_IMPORT_CRON:0 30 3 * * *}
