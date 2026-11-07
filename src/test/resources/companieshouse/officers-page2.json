@@ -1,0 +1,16 @@
+{
+  "kind": "officer-list",
+  "items_per_page": 2,
+  "start_index": 2,
+  "total_results": 3,
+  "active_count": 2,
+  "resigned_count": 1,
+  "items": [
+    {
+      "name": "EXAMPLE NOMINEES LIMITED",
+      "officer_role": "corporate-director",
+      "appointed_on": "2021-07-01"
+    }
+  ],
+  "links": { "self": "/company/12345678/officers" }
+}

@@ -1,0 +1,27 @@
+{
+  "kind": "officer-list",
+  "items_per_page": 2,
+  "start_index": 0,
+  "total_results": 3,
+  "active_count": 2,
+  "resigned_count": 1,
+  "items": [
+    {
+      "name": "PETROV, Ivan",
+      "officer_role": "director",
+      "appointed_on": "2020-01-06",
+      "nationality": "Russian",
+      "country_of_residence": "United Kingdom",
+      "occupation": "Director",
+      "date_of_birth": { "month": 3, "year": 1971 }
+    },
+    {
+      "name": "SMITH, Jane Elizabeth",
+      "officer_role": "secretary",
+      "appointed_on": "2015-02-17",
+      "resigned_on": "2023-05-01"
+    }
+  ],
+  "links": { "self": "/company/12345678/officers" },
+  "etag": "synthetic-etag"
+}

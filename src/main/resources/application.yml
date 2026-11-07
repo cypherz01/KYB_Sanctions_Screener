@@ -23,5 +23,28 @@ management:
     tags:
       application: ${spring.application.name}
 
+kyb:
+  cache:
+    max-local-entries: 10000
+  companies-house:
+    base-url: https://api.company-information.service.gov.uk
+    api-key: ${COMPANIES_HOUSE_API_KEY:}
+    cache-ttl: 24h
+    items-per-page: 100
+    # Safety stop for pagination (100 x 50 = 5,000 officers/PSCs)
+    max-pages: 50
+    connect-timeout: 5s
+    read-timeout: 10s
+    rate-limit:
+      # Upstream allows 600 per 5 minutes; stay below so normal use never sees a 429.
+      limit: 550
+      period: 5m
+      # How long a request may wait for a local permit before failing over to cache.
+      max-wait: 5s
+    retry:
+      max-retries: 3
+      base-delay: 500ms
+      max-delay: 10s
+
 # JSON (ECS) console logging is switched on via LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
 # in docker-compose; local runs and tests keep human-readable logs.

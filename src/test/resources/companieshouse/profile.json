@@ -1,0 +1,21 @@
+{
+  "company_number": "12345678",
+  "company_name": "EXAMPLE TRADING LTD",
+  "company_status": "active",
+  "type": "ltd",
+  "jurisdiction": "england-wales",
+  "date_of_creation": "2015-02-17",
+  "registered_office_address": {
+    "address_line_1": "1 Example Street",
+    "locality": "London",
+    "postal_code": "EC1A 1AA",
+    "country": "England"
+  },
+  "sic_codes": ["64921", "62020"],
+  "accounts": { "overdue": false, "next_due": "2027-03-31" },
+  "confirmation_statement": { "overdue": true, "next_due": "2026-10-01" },
+  "has_insolvency_history": false,
+  "has_charges": true,
+  "links": { "self": "/company/12345678" },
+  "etag": "synthetic-etag"
+}

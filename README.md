@@ -20,4 +20,10 @@ Run the tests (needs JDK 21 and a running Docker daemon for Testcontainers):
 ./mvnw verify
 ```
 
+No test calls a real external API; WireMock stands in for them. To check against the real Companies House API manually (needs a free key from the [developer hub](https://developer.company-information.service.gov.uk)):
+
+```sh
+COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
+```
+
 > **Disclaimer:** a portfolio project, not a compliance product. Do not use it for real onboarding decisions. Sanctions data from [OpenSanctions](https://www.opensanctions.org) is licensed CC BY-NC 4.0, **non-commercial use only**.
