@@ -1,0 +1,10 @@
+{
+  "items_per_page": 100,
+  "start_index": 0,
+  "total_results": 1,
+  "items": [
+    {"name": "Mrs Sarah Jones", "kind": "individual-person-with-significant-control", "nationality": "British",
+     "country_of_residence": "United Kingdom", "date_of_birth": {"month": 5, "year": 1980}, "notified_on": "2016-06-30",
+     "natures_of_control": ["ownership-of-shares-75-to-100-percent"]}
+  ]
+}

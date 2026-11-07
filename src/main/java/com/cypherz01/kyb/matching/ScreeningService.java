@@ -88,6 +88,15 @@ public class ScreeningService {
                 matches);
     }
 
+    /**
+     * Screens an already-built subject against a given dataset version. A KYB check pins one
+     * version for all its subjects, so the whole check is consistent and replayable (M6), even if
+     * an import activates a new version mid-check.
+     */
+    public ScreeningResult screen(MatchSubject subject, DatasetVersion version) {
+        throw new UnsupportedOperationException("not implemented yet");
+    }
+
     private record Scored(MatchCandidate candidate, MatchScore score) {}
 
     /** Highest similarity first; then primary names over aliases; then a stable order. */

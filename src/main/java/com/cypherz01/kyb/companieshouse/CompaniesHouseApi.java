@@ -129,6 +129,11 @@ public class CompaniesHouseApi {
         return fetchAllPages("pscs", PSCS, number, true);
     }
 
+    /** @return the exemptions JSON, or empty on 404 (Companies House: the company has none) */
+    public Optional<JsonNode> fetchExemptions(CompanyNumber number) {
+        throw new UnsupportedOperationException("not implemented yet");
+    }
+
     private JsonNode fetchAllPages(String operation, String path, CompanyNumber number, boolean sendRegisterView) {
         ObjectNode merged = null;
         ArrayNode items = JsonNodeFactory.instance.arrayNode();

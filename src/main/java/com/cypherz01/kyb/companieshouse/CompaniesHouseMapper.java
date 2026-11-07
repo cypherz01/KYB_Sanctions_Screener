@@ -12,6 +12,7 @@ import com.cypherz01.kyb.companieshouse.model.Address;
 import com.cypherz01.kyb.companieshouse.model.CompanyProfile;
 import com.cypherz01.kyb.companieshouse.model.Officer;
 import com.cypherz01.kyb.companieshouse.model.Psc;
+import com.cypherz01.kyb.companieshouse.model.PscExemptions;
 import com.cypherz01.kyb.companieshouse.model.PscKind;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,6 +50,14 @@ public class CompaniesHouseMapper {
             return List.of();
         }
         return list.items().stream().map(CompaniesHouseMapper::toOfficer).toList();
+    }
+
+    /**
+     * @return the exemption types with at least one item lacking {@code exempt_to}; {@code {}} (how
+     *     a cached 404 is stored) means none
+     */
+    public PscExemptions toExemptions(JsonNode json) {
+        throw new UnsupportedOperationException("not implemented yet");
     }
 
     public List<Psc> toPscs(JsonNode json) {

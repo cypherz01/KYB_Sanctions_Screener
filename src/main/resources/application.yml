@@ -7,6 +7,9 @@ spring:
     password: ${DB_PASSWORD:kyb}
   flyway:
     enabled: true
+  # Scoring rules live in their own versioned file (spec §9).
+  config:
+    import: classpath:scoring-rules.yml
 
 management:
   endpoints:
@@ -24,6 +27,65 @@ management:
       application: ${spring.application.name}
 
 kyb:
+  security:
+    # Callers send this as X-Api-Key on every /api/** request. Unset means every API call is
+    # refused (fail closed), never left open by accident.
+    api-key: ${KYB_API_KEY:}
+  checks:
+    # Bump when matching or scoring CODE changes (config changes are versioned in scoring-rules.yml).
+    # The normaliser version is appended automatically.
+    engine-version: 1.0.0
+    include-resigned-officers: false
+    # Companies House gives nationality as a demonym; the matcher compares ISO 3166-1 alpha-2 codes.
+    # Unknown nationalities are simply not compared (neutral). Keys are lower case.
+    nationalities:
+      "[british]": gb
+      "[english]": gb
+      "[scottish]": gb
+      "[welsh]": gb
+      "[northern irish]": gb
+      "[irish]": ie
+      "[american]": us
+      "[canadian]": ca
+      "[australian]": au
+      "[new zealander]": nz
+      "[french]": fr
+      "[german]": de
+      "[italian]": it
+      "[spanish]": es
+      "[portuguese]": pt
+      "[dutch]": nl
+      "[belgian]": be
+      "[swiss]": ch
+      "[austrian]": at
+      "[swedish]": se
+      "[norwegian]": "no"
+      "[danish]": dk
+      "[finnish]": fi
+      "[polish]": pl
+      "[romanian]": ro
+      "[bulgarian]": bg
+      "[greek]": gr
+      "[cypriot]": cy
+      "[turkish]": tr
+      "[russian]": ru
+      "[ukrainian]": ua
+      "[belarusian]": by
+      "[chinese]": cn
+      "[indian]": in
+      "[pakistani]": pk
+      "[bangladeshi]": bd
+      "[nigerian]": ng
+      "[south african]": za
+      "[emirati]": ae
+      "[saudi arabian]": sa
+      "[iranian]": ir
+      "[iraqi]": iq
+      "[syrian]": sy
+      "[afghan]": af
+      "[north korean]": kp
+      "[venezuelan]": ve
+      "[cuban]": cu
   cache:
     max-local-entries: 10000
   companies-house:

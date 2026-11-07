@@ -1,0 +1,10 @@
+{
+  "kind": "officer-list",
+  "items_per_page": 100,
+  "start_index": 0,
+  "total_results": 1,
+  "items": [
+    {"name": "JONES, Sarah", "officer_role": "director", "appointed_on": "2010-05-01", "nationality": "British",
+     "country_of_residence": "United Kingdom", "date_of_birth": {"month": 5, "year": 1980}}
+  ]
+}

@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cypherz01.kyb.sanctions.ImportOutcome;
 import com.cypherz01.kyb.sanctions.SanctionsImportService;
+import com.cypherz01.kyb.support.ApiIntegrationTest;
 import com.cypherz01.kyb.support.OpenSanctionsStubs;
-import com.cypherz01.kyb.support.PostgresTestcontainer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -15,9 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +23,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-/** {@code POST /api/v1/screen/name} (spec §7). API-key protection arrives with M5. */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(PostgresTestcontainer.class)
+/** {@code POST /api/v1/screen/name} (spec §7). The API key is sent by @ApiIntegrationTest. */
+@ApiIntegrationTest
 class ScreeningApiIntegrationTest {
 
     static final String SCREEN = "/api/v1/screen/name";

@@ -6,6 +6,7 @@ import com.cypherz01.kyb.cache.Sourced;
 import com.cypherz01.kyb.companieshouse.model.CompanyProfile;
 import com.cypherz01.kyb.companieshouse.model.Officer;
 import com.cypherz01.kyb.companieshouse.model.Psc;
+import com.cypherz01.kyb.companieshouse.model.PscExemptions;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
@@ -67,6 +68,11 @@ public class CompaniesHouseClient {
     public Sourced<List<Psc>> getPscs(String companyNumber) {
         CompanyNumber n = CompanyNumber.parse(companyNumber);
         return fetch("pscs", n, () -> api.fetchPscs(n)).map(mapper::toPscs);
+    }
+
+    /** PSC-register exemptions; a 404 (none) is cached like any other answer. */
+    public Sourced<PscExemptions> getExemptions(String companyNumber) {
+        throw new UnsupportedOperationException("not implemented yet");
     }
 
     private Sourced<JsonNode> fetch(String operation, CompanyNumber number, Supplier<JsonNode> live) {
