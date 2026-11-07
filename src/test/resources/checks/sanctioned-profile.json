@@ -1,0 +1,12 @@
+{
+  "company_number": "01234567",
+  "company_name": "ACME WIDGETS LTD",
+  "company_status": "active",
+  "type": "ltd",
+  "date_of_creation": "2015-03-01",
+  "registered_office_address": {"address_line_1": "2 Dock Road", "locality": "London", "postal_code": "E1 6AN", "country": "England"},
+  "sic_codes": ["46900"],
+  "accounts": {"overdue": false},
+  "confirmation_statement": {"overdue": false},
+  "has_insolvency_history": false
+}

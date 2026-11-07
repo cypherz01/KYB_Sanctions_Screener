@@ -1,0 +1,52 @@
+# KYB risk scoring rules (spec §9). Rule-based and deterministic so every decision can be explained.
+# Bump `version` whenever anything here changes: it is recorded on every check, and a replay (M6)
+# must use the same rules.
+kyb:
+  scoring:
+    version: "2026-11-07"
+    thresholds:
+      review: 40
+      fail: 80
+    points:
+      COMPANY_NOT_ACTIVE: 50
+      COMPANY_RECENTLY_INCORPORATED: 10
+      ACCOUNTS_OVERDUE: 10
+      NO_PSC_DECLARED: 15
+      CORPORATE_PSC_OFFSHORE: 10
+      HIGH_OFFICER_CHURN: 5
+      FCA_CLONE_OR_UNAUTHORISED_MATCH: 60
+      FCA_NOT_AUTHORISED_FOR_ACTIVITY: 25
+      FCA_UNAVAILABLE: 10
+      SANCTIONS_POSSIBLE_MATCH: 35
+      # Automatic FAIL whatever the score; its points only show in the total.
+      SANCTIONS_STRONG_MATCH: 0
+    # A POSSIBLE match earns up to this many points on top of its base, scaled linearly by where
+    # its similarity falls between the POSSIBLE and STRONG thresholds.
+    sanctions-possible-scale: 15
+    recently-incorporated-days: 90
+    officer-churn:
+      window-days: 365
+      min-changes: 3
+    # Companies House company_status values meaning the company is not trading normally.
+    inactive-statuses: [dissolved, liquidation, receivership, administration, voluntary-arrangement,
+                        converted-closed, insolvency-proceedings, removed, closed]
+    # Corporate PSC registration countries treated as UK (compared case-insensitively).
+    uk-countries: [united kingdom, uk, great britain, england, wales, scotland, northern ireland,
+                   england and wales, england & wales, gb]
+    # SIC 2007 codes whose activity normally needs FCA authorisation or registration.
+    regulated-sic-codes:
+      "64191": Banks
+      "64192": Building societies
+      "64205": Activities of financial services holding companies
+      "64910": Financial leasing
+      "64921": Credit granting by non-deposit taking finance houses and other specialist consumer credit grantors
+      "64922": Activities of mortgage finance companies
+      "64929": Other credit granting
+      "64999": Financial intermediation not elsewhere classified
+      "65110": Life insurance
+      "65120": Non-life insurance
+      "66110": Administration of financial markets
+      "66120": Security and commodity contracts dealing activities
+      "66190": Activities auxiliary to financial intermediation not elsewhere classified
+      "66220": Activities of insurance agents and brokers
+      "66300": Fund management activities

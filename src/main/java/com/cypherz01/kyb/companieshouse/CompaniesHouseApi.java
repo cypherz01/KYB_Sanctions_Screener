@@ -51,6 +51,7 @@ public class CompaniesHouseApi {
     private static final String PROFILE = "/company/{number}";
     private static final String OFFICERS = "/company/{number}/officers";
     private static final String PSCS = "/company/{number}/persons-with-significant-control";
+    private static final String EXEMPTIONS = "/company/{number}/exemptions";
 
     private final RestClient rest;
     private final CompaniesHouseProperties properties;
@@ -127,6 +128,11 @@ public class CompaniesHouseApi {
     public JsonNode fetchPscs(CompanyNumber number) {
         // register_view is documented as required on this endpoint (and optional on officers).
         return fetchAllPages("pscs", PSCS, number, true);
+    }
+
+    /** @return the exemptions JSON, or empty on 404 (Companies House: the company has none) */
+    public Optional<JsonNode> fetchExemptions(CompanyNumber number) {
+        return execute("exemptions", b -> b.path(EXEMPTIONS).build(number.value()));
     }
 
     private JsonNode fetchAllPages(String operation, String path, CompanyNumber number, boolean sendRegisterView) {

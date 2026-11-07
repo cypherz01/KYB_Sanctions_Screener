@@ -96,6 +96,17 @@ public class NameMatcher {
             similarity = Math.nextDown(props.bands().strong());
             evidence.add("Capped below STRONG because " + cap);
         }
+        // A one-word listed person name ("Adam") is a weak alias: it cannot identify a subject who
+        // has a full name, so it is never retained. Organisations keep it: one distinctive token
+        // ("Gazprom") can name a company.
+        if (subject.type() == SubjectType.PERSON
+                && b.tokens().size() == 1
+                && a.tokens().size() > 1
+                && similarity >= props.bands().possible()) {
+            similarity = Math.nextDown(props.bands().possible());
+            evidence.add("Discarded: the sanctioned name '" + candidate.matchedName()
+                    + "' is a single word, too little to identify a person with a full name");
+        }
 
         evidence.add(String.format(
                 Locale.ROOT,

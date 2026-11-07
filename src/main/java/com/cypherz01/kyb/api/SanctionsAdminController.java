@@ -2,14 +2,10 @@ package com.cypherz01.kyb.api;
 
 import com.cypherz01.kyb.api.SanctionsAdminDtos.ImportAccepted;
 import com.cypherz01.kyb.api.SanctionsAdminDtos.StatusResponse;
-import com.cypherz01.kyb.sanctions.ImportAlreadyRunningException;
 import com.cypherz01.kyb.sanctions.SanctionsAttribution;
 import com.cypherz01.kyb.sanctions.SanctionsImportService;
 import com.cypherz01.kyb.sanctions.SanctionsStatus;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,12 +47,5 @@ public class SanctionsAdminController {
                 s.importRunning(),
                 s.activeEntitiesBySchema(),
                 SanctionsAttribution.OPENSANCTIONS);
-    }
-
-    @ExceptionHandler(ImportAlreadyRunningException.class)
-    ProblemDetail importAlreadyRunning(ImportAlreadyRunningException e) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
-        problem.setTitle("Sanctions import already running");
-        return problem;
     }
 }

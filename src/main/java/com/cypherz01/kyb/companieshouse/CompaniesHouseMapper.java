@@ -12,11 +12,13 @@ import com.cypherz01.kyb.companieshouse.model.Address;
 import com.cypherz01.kyb.companieshouse.model.CompanyProfile;
 import com.cypherz01.kyb.companieshouse.model.Officer;
 import com.cypherz01.kyb.companieshouse.model.Psc;
+import com.cypherz01.kyb.companieshouse.model.PscExemptions;
 import com.cypherz01.kyb.companieshouse.model.PscKind;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Maps raw Companies House JSON to the domain model. Pure and side-effect free. */
@@ -49,6 +51,28 @@ public class CompaniesHouseMapper {
             return List.of();
         }
         return list.items().stream().map(CompaniesHouseMapper::toOfficer).toList();
+    }
+
+    /**
+     * @return the exemption types with at least one item lacking {@code exempt_to}; {@code {}} (how
+     *     a cached 404 is stored) means none
+     */
+    public PscExemptions toExemptions(JsonNode json) {
+        List<String> current = new ArrayList<>();
+        json.path("exemptions").properties().forEach(e -> {
+            boolean inForce = false;
+            for (JsonNode item : e.getValue().path("items")) {
+                if (item.path("exempt_to").isMissingNode()
+                        || item.path("exempt_to").isNull()) {
+                    inForce = true;
+                }
+            }
+            if (inForce) {
+                String type = e.getValue().path("exemption_type").asText("");
+                current.add(type.isBlank() ? e.getKey().replace('_', '-') : type);
+            }
+        });
+        return current.isEmpty() ? PscExemptions.NONE : new PscExemptions(current);
     }
 
     public List<Psc> toPscs(JsonNode json) {

@@ -6,7 +6,9 @@ import com.cypherz01.kyb.cache.Sourced;
 import com.cypherz01.kyb.companieshouse.model.CompanyProfile;
 import com.cypherz01.kyb.companieshouse.model.Officer;
 import com.cypherz01.kyb.companieshouse.model.Psc;
+import com.cypherz01.kyb.companieshouse.model.PscExemptions;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Instant;
@@ -67,6 +69,14 @@ public class CompaniesHouseClient {
     public Sourced<List<Psc>> getPscs(String companyNumber) {
         CompanyNumber n = CompanyNumber.parse(companyNumber);
         return fetch("pscs", n, () -> api.fetchPscs(n)).map(mapper::toPscs);
+    }
+
+    /** PSC-register exemptions; a 404 (none) is cached like any other answer. */
+    public Sourced<PscExemptions> getExemptions(String companyNumber) {
+        CompanyNumber n = CompanyNumber.parse(companyNumber);
+        // 404 means "no exemptions": an answer, so it is cached (as {}) rather than re-asked.
+        return fetch("exemptions", n, () -> api.fetchExemptions(n).orElseGet(JsonNodeFactory.instance::objectNode))
+                .map(mapper::toExemptions);
     }
 
     private Sourced<JsonNode> fetch(String operation, CompanyNumber number, Supplier<JsonNode> live) {

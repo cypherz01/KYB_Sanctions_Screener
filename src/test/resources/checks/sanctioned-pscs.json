@@ -1,0 +1,10 @@
+{
+  "items_per_page": 100,
+  "start_index": 0,
+  "total_results": 1,
+  "items": [
+    {"name": "Mr Ivan Petrov", "kind": "individual-person-with-significant-control", "nationality": "Russian",
+     "country_of_residence": "Cyprus", "date_of_birth": {"month": 3, "year": 1971}, "notified_on": "2016-06-30",
+     "natures_of_control": ["ownership-of-shares-75-to-100-percent"]}
+  ]
+}

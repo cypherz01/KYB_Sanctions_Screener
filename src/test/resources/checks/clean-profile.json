@@ -1,0 +1,12 @@
+{
+  "company_number": "07654321",
+  "company_name": "BRIGHT BAKERY LTD",
+  "company_status": "active",
+  "type": "ltd",
+  "date_of_creation": "2010-05-01",
+  "registered_office_address": {"address_line_1": "1 High Street", "locality": "Leeds", "postal_code": "LS1 1AA", "country": "England"},
+  "sic_codes": ["10710"],
+  "accounts": {"overdue": false},
+  "confirmation_statement": {"overdue": false},
+  "has_insolvency_history": false
+}
