@@ -1,0 +1,3 @@
+{"id":"NK-person-ok","caption":"Good Line","schema":"Person","datasets":["eu_fsf"],"properties":{"name":["Good Line"],"topics":["sanction"]},"target":true}
+this is not json
+{"schema":"Person","properties":{"name":["No Id"],"topics":["sanction"]}}
