@@ -6,6 +6,7 @@ import com.cypherz01.kyb.support.PostgresTestcontainer;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
@@ -18,6 +19,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * Flyway baseline has installed the extensions the matcher relies on.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// Spring Boot disables metrics exporters in tests by default; opt in so /actuator/prometheus exists.
+@AutoConfigureObservability
 @Import(PostgresTestcontainer.class)
 class SkeletonIntegrationTest {
 
