@@ -23,7 +23,22 @@
         <spotless.version>2.46.1</spotless.version>
         <!-- Boot 3.5.6 manages 1.21.3, whose default Docker API version is rejected by Docker Engine 29+ -->
         <testcontainers.version>1.21.4</testcontainers.version>
+        <resilience4j.version>2.3.0</resilience4j.version>
+        <wiremock.version>3.13.1</wiremock.version>
+        <surefire.excludedGroups>smoke</surefire.excludedGroups>
+        <surefire.groups></surefire.groups>
     </properties>
+
+    <profiles>
+        <!-- Manual only: ./mvnw -Psmoke test  (needs COMPANIES_HOUSE_API_KEY and Docker) -->
+        <profile>
+            <id>smoke</id>
+            <properties>
+                <surefire.excludedGroups></surefire.excludedGroups>
+                <surefire.groups>smoke</surefire.groups>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <!-- Web + operational endpoints -->
@@ -59,10 +74,40 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
+        <!-- Resilience: used programmatically (not via annotations) so retry intervals can honour
+             upstream Retry-After hints and every decorator is unit-testable without AOP. -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-ratelimiter</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-micrometer</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+
+        <!-- Caching (L1, in-process; L2 is the Postgres cache_entry table) -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>${wiremock.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -87,6 +132,16 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Tests tagged "smoke" call real external APIs: never run by default (spec §14). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                    <groups>${surefire.groups}</groups>
+                </configuration>
             </plugin>
 
             <!-- Coverage: report on every build; thresholds for matching/scoring added in M3/M5 -->

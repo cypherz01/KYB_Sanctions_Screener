@@ -1,0 +1,15 @@
+{
+  "items_per_page": 2,
+  "start_index": 2,
+  "total_results": 3,
+  "active_count": 3,
+  "ceased_count": 0,
+  "items": [
+    {
+      "kind": "super-secure-person-with-significant-control",
+      "description": "super-secure-persons-with-significant-control",
+      "notified_on": "2022-02-02"
+    }
+  ],
+  "links": { "self": "/company/12345678/persons-with-significant-control" }
+}
