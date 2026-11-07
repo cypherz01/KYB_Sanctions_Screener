@@ -41,7 +41,7 @@ public record FcaProperties(
 
     /** Both credentials present. Without them no call is attempted. */
     public boolean hasCredentials() {
-        throw new UnsupportedOperationException("not implemented yet");
+        return authEmail != null && !authEmail.isBlank() && authKey != null && !authKey.isBlank();
     }
 
     @Override

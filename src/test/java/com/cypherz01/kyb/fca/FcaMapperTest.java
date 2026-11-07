@@ -35,6 +35,20 @@ class FcaMapperTest {
         assertThat(hit.postcode()).isNull();
     }
 
+    // Added in M4 green: the real Register writes "N/A" / "n/a" for a missing postcode.
+    @Test
+    void aNotApplicablePostcodeIsNoPostcode() {
+        String envelope = "{\"Data\":[{\"Reference Number\":\"1\",\"Status\":\"Unauthorised\","
+                + "\"Name\":\"Independence Loans (Clone) (Postcode: N/A)\"},"
+                + "{\"Reference Number\":\"2\",\"Status\":\"Unauthorised\",\"Name\":\"Sunshine Credit (clone) (Postcode: n/a)\"}]}";
+
+        assertThat(mapper.toSearchHits(json(envelope)))
+                .extracting(FcaSearchHit::name, FcaSearchHit::postcode)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Independence Loans (Clone)", null),
+                        org.assertj.core.groups.Tuple.tuple("Sunshine Credit (clone)", null));
+    }
+
     @Test
     void noResultsMeansNoHits() {
         assertThat(mapper.toSearchHits(json(Fixtures.read("fca/search-empty.json"))))

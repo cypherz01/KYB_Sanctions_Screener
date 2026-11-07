@@ -257,6 +257,25 @@ class FcaRegisterClientTest {
         assertThat(a.authorisedMatch().frn()).isEqualTo("123456");
     }
 
+    // Added in M4 green: real Register entries can list alternative names separated by "/".
+    @Test
+    void anyAlternativeNameOfAnEntryCanMatch() {
+        wm.stubFor(
+                get(urlPathEqualTo("/Search"))
+                        .willReturn(
+                                okJson(
+                                        """
+                        {"Status":"FSR-API-04-01-00","Message":"Ok. Search successful","Data":[
+                          {"Status":"Unauthorised","Reference Number":"999010","Type of business or Individual":"Firm",
+                           "Name":"Cater Allen / Cater Allen Private Bank (clone of FCA authorised firm) (Postcode: n/a)"}]}
+                        """)));
+
+        FcaAssessment a = client.assess("CATER ALLEN PRIVATE BANK LIMITED", null, null);
+
+        assertThat(a.warnings()).extracting(FcaWarningMatch::frn).containsExactly("999010");
+        assertThat(a.warnings().get(0).similarity()).isGreaterThanOrEqualTo(0.9);
+    }
+
     @Test
     void unauthorisedEntriesForOtherNamesAreNotWarnings() {
         stubSearch("search-clone.json");

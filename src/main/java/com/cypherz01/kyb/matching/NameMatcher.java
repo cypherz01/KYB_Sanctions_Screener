@@ -28,6 +28,11 @@ public class NameMatcher {
         this.props = properties;
     }
 
+    /** The POSSIBLE band threshold: below it two names are not treated as the same. */
+    public double possibleThreshold() {
+        return props.bands().possible();
+    }
+
     public MatchScore score(MatchSubject subject, MatchCandidate candidate) {
         if (!subject.type().schemas().contains(candidate.schema())) {
             return new MatchScore(
