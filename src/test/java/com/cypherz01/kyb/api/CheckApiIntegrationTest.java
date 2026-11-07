@@ -168,6 +168,8 @@ class CheckApiIntegrationTest {
 
         assertThat(fetched.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(json.readTree(fetched.getBody())).isEqualTo(original);
+        // Byte for byte, not just the same JSON: field order must survive storage (jsonb re-sorts keys).
+        assertThat(fetched.getBody()).isEqualTo(created.getBody());
     }
 
     @Test

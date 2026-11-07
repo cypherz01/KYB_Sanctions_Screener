@@ -27,6 +27,7 @@
         <wiremock.version>3.13.1</wiremock.version>
         <commons-text.version>1.13.0</commons-text.version>
         <icu4j.version>76.1</icu4j.version>
+        <springdoc.version>2.8.9</springdoc.version>
         <surefire.excludedGroups>smoke</surefire.excludedGroups>
         <surefire.groups></surefire.groups>
     </properties>
@@ -55,6 +56,13 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- OpenAPI document + Swagger UI (spec §7) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
 
         <!-- Persistence -->
@@ -173,7 +181,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Coverage: report on every build; gate on matching (M3), scoring to follow (M5) -->
+            <!-- Coverage: report on every build; gate on matching and scoring -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -191,7 +199,7 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
-                    <!-- Spec §14: at least 80% line coverage on matching (scoring is added in M5) -->
+                    <!-- Spec §14: at least 80% line coverage on matching and scoring (each package) -->
                     <execution>
                         <id>check</id>
                         <phase>verify</phase>
@@ -204,6 +212,7 @@
                                     <element>PACKAGE</element>
                                     <includes>
                                         <include>com.cypherz01.kyb.matching</include>
+                                        <include>com.cypherz01.kyb.scoring</include>
                                     </includes>
                                     <limits>
                                         <limit>

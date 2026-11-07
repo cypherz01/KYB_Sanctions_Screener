@@ -51,6 +51,7 @@ public class CompaniesHouseApi {
     private static final String PROFILE = "/company/{number}";
     private static final String OFFICERS = "/company/{number}/officers";
     private static final String PSCS = "/company/{number}/persons-with-significant-control";
+    private static final String EXEMPTIONS = "/company/{number}/exemptions";
 
     private final RestClient rest;
     private final CompaniesHouseProperties properties;
@@ -131,7 +132,7 @@ public class CompaniesHouseApi {
 
     /** @return the exemptions JSON, or empty on 404 (Companies House: the company has none) */
     public Optional<JsonNode> fetchExemptions(CompanyNumber number) {
-        throw new UnsupportedOperationException("not implemented yet");
+        return execute("exemptions", b -> b.path(EXEMPTIONS).build(number.value()));
     }
 
     private JsonNode fetchAllPages(String operation, String path, CompanyNumber number, boolean sendRegisterView) {

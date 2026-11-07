@@ -56,6 +56,9 @@ nonmatch-6|NONE|ORGANISATION|Bank Rossiya|||Bank Saint Petersburg|Company|||shar
 nonmatch-7|NONE|ORGANISATION|Rosneft Trading|||Gazprom Trading|Company|||shares one word
 nonmatch-8|NONE|PERSON|Maria Gonzalez|||Mario Gomez|Person|||similar-looking, different names
 single-1|WEAK|PERSON|Petrov|||Ivan Petrov|Person|||surname only: weak at most
+single-2|NONE|PERSON|BANKS, Adam|1971-02|GB|Adam|Person|1971;1973|pk;af|one-word alias on the list (real M5 false positive): never retained
+single-3|NONE|PERSON|Ivan Petrov|||Petrov|Person|||one-word listed name vs a full name: never retained
+single-4|MATCH|ORGANISATION|Gazprom PJSC|||Gazprom|Company|||one distinctive token still names a company
 type-1|NONE|PERSON|Acme Trading|||Acme Trading|Company|||person never matches a company
 type-2|NONE|ORGANISATION|Ivan Petrov|||Ivan Petrov|Person|||company never matches a person
 type-3|STRONG|ANY|Acme Trading|||Acme Trading|Company|||unknown type matches anything

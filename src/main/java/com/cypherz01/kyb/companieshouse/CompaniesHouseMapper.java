@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Maps raw Companies House JSON to the domain model. Pure and side-effect free. */
@@ -57,7 +58,21 @@ public class CompaniesHouseMapper {
      *     a cached 404 is stored) means none
      */
     public PscExemptions toExemptions(JsonNode json) {
-        throw new UnsupportedOperationException("not implemented yet");
+        List<String> current = new ArrayList<>();
+        json.path("exemptions").properties().forEach(e -> {
+            boolean inForce = false;
+            for (JsonNode item : e.getValue().path("items")) {
+                if (item.path("exempt_to").isMissingNode()
+                        || item.path("exempt_to").isNull()) {
+                    inForce = true;
+                }
+            }
+            if (inForce) {
+                String type = e.getValue().path("exemption_type").asText("");
+                current.add(type.isBlank() ? e.getKey().replace('_', '-') : type);
+            }
+        });
+        return current.isEmpty() ? PscExemptions.NONE : new PscExemptions(current);
     }
 
     public List<Psc> toPscs(JsonNode json) {

@@ -13,7 +13,8 @@ CREATE TABLE kyb_check (
     scoring_config_version       TEXT        NOT NULL,
     engine_version               TEXT        NOT NULL,
     request                      JSONB       NOT NULL,
-    response                     JSONB       NOT NULL
+    -- JSON, not JSONB: JSONB re-sorts object keys, and the stored response must come back byte for byte.
+    response                     JSON        NOT NULL
 );
 
 CREATE INDEX kyb_check_company_requested_idx ON kyb_check (company_number, requested_at DESC);

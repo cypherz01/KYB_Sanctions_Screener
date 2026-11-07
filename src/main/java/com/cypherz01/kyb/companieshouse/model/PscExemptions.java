@@ -20,6 +20,6 @@ public record PscExemptions(List<String> current) {
 
     /** At least one exemption is in force. */
     public boolean exempt() {
-        throw new UnsupportedOperationException("not implemented yet");
+        return !current.isEmpty();
     }
 }

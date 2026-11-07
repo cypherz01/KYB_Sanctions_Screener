@@ -52,12 +52,20 @@ public class ScreeningService {
      * @throws SanctionsDataUnavailableException no active dataset (nothing imported yet)
      */
     public ScreeningResult screen(ScreeningRequest request) {
-        long start = System.nanoTime();
         MatchSubject subject = subject(request);
         DatasetVersion active = datasets.findActive()
                 .orElseThrow(() -> new SanctionsDataUnavailableException(
                         "No sanctions dataset has been imported yet, so screening is unavailable"));
+        return screen(subject, active);
+    }
 
+    /**
+     * Screens an already-built subject against a given dataset version. A KYB check pins one
+     * version for all its subjects, so the whole check is consistent and replayable (M6), even if
+     * an import activates a new version mid-check.
+     */
+    public ScreeningResult screen(MatchSubject subject, DatasetVersion active) {
+        long start = System.nanoTime();
         List<MatchCandidate> candidates = retriever.retrieve(active.id(), subject);
         Map<Long, Scored> bestPerEntity = new LinkedHashMap<>();
         for (MatchCandidate c : candidates) {
@@ -79,22 +87,13 @@ public class ScreeningService {
                 .register(meters)
                 .record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
         return new ScreeningResult(
-                request.name(),
+                subject.name().original(),
                 subject.type(),
                 subject.name().normalised(),
                 active.id(),
                 active.versionLabel(),
                 candidates.size(),
                 matches);
-    }
-
-    /**
-     * Screens an already-built subject against a given dataset version. A KYB check pins one
-     * version for all its subjects, so the whole check is consistent and replayable (M6), even if
-     * an import activates a new version mid-check.
-     */
-    public ScreeningResult screen(MatchSubject subject, DatasetVersion version) {
-        throw new UnsupportedOperationException("not implemented yet");
     }
 
     private record Scored(MatchCandidate candidate, MatchScore score) {}
