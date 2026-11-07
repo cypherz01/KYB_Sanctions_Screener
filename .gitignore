@@ -1,0 +1,25 @@
+# Build output
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Secrets — never commit real credentials
+.env
+
+# Sanctions data downloads (large, licensed CC BY-NC 4.0, fetched at runtime)
+data/
+
+# OS
+.DS_Store
+Thumbs.db
