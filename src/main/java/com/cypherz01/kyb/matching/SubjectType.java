@@ -23,4 +23,16 @@ public enum SubjectType {
     public Set<String> schemas() {
         return schemas;
     }
+
+    /**
+     * How a stored sanctions name of this schema is normalised: a LegalEntity may be a person or an
+     * organisation, so it gets both rule sets.
+     */
+    public static SubjectType forSchema(String schema) {
+        return switch (schema) {
+            case "Person" -> PERSON;
+            case "Company", "Organization" -> ORGANISATION;
+            default -> ANY;
+        };
+    }
 }

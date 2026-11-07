@@ -1,9 +1,11 @@
 package com.cypherz01.kyb.config;
 
+import com.cypherz01.kyb.matching.NameNormaliser;
 import com.cypherz01.kyb.sanctions.FtmEntityParser;
 import com.cypherz01.kyb.sanctions.OpenSanctionsSource;
 import com.cypherz01.kyb.sanctions.SanctionsImportScheduler;
 import com.cypherz01.kyb.sanctions.SanctionsImportService;
+import com.cypherz01.kyb.sanctions.SanctionsNameIndexer;
 import com.cypherz01.kyb.sanctions.SanctionsProperties;
 import com.cypherz01.kyb.sanctions.SanctionsRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,8 +39,9 @@ class SanctionsConfig {
     }
 
     @Bean
-    SanctionsRepository sanctionsRepository(JdbcTemplate jdbc, PlatformTransactionManager transactions) {
-        return new SanctionsRepository(jdbc, new TransactionTemplate(transactions));
+    SanctionsRepository sanctionsRepository(
+            JdbcTemplate jdbc, PlatformTransactionManager transactions, NameNormaliser normaliser) {
+        return new SanctionsRepository(jdbc, new TransactionTemplate(transactions), normaliser);
     }
 
     /**
@@ -60,7 +63,11 @@ class SanctionsConfig {
     }
 
     @Bean
-    SanctionsImportScheduler sanctionsImportScheduler(SanctionsImportService service, SanctionsProperties properties) {
-        return new SanctionsImportScheduler(service, properties);
+    SanctionsImportScheduler sanctionsImportScheduler(
+            SanctionsImportService service,
+            SanctionsNameIndexer indexer,
+            SanctionsProperties properties,
+            @Qualifier("applicationTaskExecutor") Executor executor) {
+        return new SanctionsImportScheduler(service, indexer, properties, executor);
     }
 }

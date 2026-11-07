@@ -60,3 +60,7 @@ type-1|NONE|PERSON|Acme Trading|||Acme Trading|Company|||person never matches a 
 type-2|NONE|ORGANISATION|Ivan Petrov|||Ivan Petrov|Person|||company never matches a person
 type-3|STRONG|ANY|Acme Trading|||Acme Trading|Company|||unknown type matches anything
 type-4|STRONG|PERSON|Ivan Petrov|||Ivan Petrov|LegalEntity|||LegalEntity may be a person
+# Added in M3 green after the full-dataset smoke run surfaced them as STRONG (too strong for M5's auto-FAIL):
+extra-1|WEAK|PERSON|John Smith|||John B. Pridmore-Smith|Person|||surname is only part of a longer double-barrelled name
+extra-2|WEAK|PERSON|Maria Garcia|||Gaxiola Garcia, Maria Elena|Person|||two extra name tokens on the list
+extra-3|STRONG|PERSON|Viktor Bout|||BOUT, Viktor Anatolijevitch|Person|||one extra (patronymic) token stays STRONG

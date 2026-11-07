@@ -88,7 +88,9 @@ kyb:
     tokens:
       initial-similarity: 0.70
       phonetic-similarity: 0.90
-      extra-token-penalty: 0.10
+      # 0.20, not 0.10: tuned on the full dataset, where "John Smith" vs "John B. Pridmore-Smith"
+      # (two unmatched tokens) came out STRONG. One extra middle name still stays STRONG.
+      extra-token-penalty: 0.20
     bands:
       strong: 0.90
       possible: 0.80
