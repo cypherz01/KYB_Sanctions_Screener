@@ -26,6 +26,18 @@ No test calls a real external API; WireMock stands in for them. To check against
 COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
 ```
 
+## FCA Register
+
+The regulatory check uses the free [FCA Financial Services Register API](https://register.fca.org.uk/Developer/s/). Add `FCA_AUTH_EMAIL` and `FCA_AUTH_KEY` to `.env`. Without them, checks still run and report that regulatory status could not be verified.
+
+- **Matching a company to a firm.** Companies House does not record the FCA reference number (FRN), so the company name is searched on the Register. Each hit is scored with the same normaliser and matcher used for sanctions. For the strongest authorised hits, the firm details are fetched: the same Companies House number is a certain match, and a different one rules the firm out. Otherwise the match rests on name (plus postcode), and its confidence and basis are reported.
+- **Clone and unauthorised firms.** The API has no separate warning list. Entries with status `Unauthorised`, or names marked `(Clone)` / `(Clone of FCA authorised firm)`, are reported as warnings when their name matches.
+- **No SLA, so built to degrade.** A client-side rate limiter stays below the documented 50 requests per 10 seconds, and a circuit breaker stops calls to a failing Register. Responses are cached for 7 days in Postgres. During an outage, expired results are served flagged `STALE` with their fetch time. If nothing is cached, the result is `UNAVAILABLE` and the check still completes.
+
+Verified against the live Register on 2026-11-07, which the official docs (JavaScript-only) could not be. Barclays Bank UK PLC was matched to FRN 759676 by its Companies House number. Run that check yourself with `./mvnw -Psmoke test -Dtest=FcaRegisterSmokeTest`, with the two variables set.
+
+Known limitations: only the first page of search results (20 firms) is considered. Clone detection depends on the Register's naming conventions. Permissions are not yet compared with the company's activities.
+
 ## Sanctions data
 
 Sanctions screening runs against a local copy of the [OpenSanctions](https://www.opensanctions.org/datasets/sanctions/) `sanctions` collection, downloaded as bulk FollowTheMoney JSON (about 380 MB). The hosted API is not used. On the first `docker compose up` with an empty database, the app imports the data in the background. After that it re-imports nightly at 03:30 UK time. To trigger or inspect an import yourself:

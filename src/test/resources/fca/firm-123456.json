@@ -1,0 +1,20 @@
+{
+  "Status": "FSR-API-02-01-00",
+  "ResultInfo": null,
+  "Message": "Ok. Firm Found",
+  "Data": [
+    {
+      "Name": "https://register.fca.org.uk/services/V0.1/Firm/123456/Names",
+      "Individuals": "https://register.fca.org.uk/services/V0.1/Firm/123456/Individuals",
+      "Permission": "https://register.fca.org.uk/services/V0.1/Firm/123456/Permissions",
+      "Organisation Name": "Acme Payments Ltd",
+      "Status": "Authorised",
+      "Status Effective Date": "01/06/2019",
+      "Business Type": "Regulated",
+      "FRN": "123456",
+      "Companies House Number": "12345678",
+      "Exceptional Info Details": [],
+      "Sub-Status": ""
+    }
+  ]
+}

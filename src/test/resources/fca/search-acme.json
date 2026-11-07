@@ -1,0 +1,28 @@
+{
+  "Status": "FSR-API-04-01-00",
+  "ResultInfo": {"page": "1", "per_page": "20", "total_count": "3"},
+  "Message": "Ok. Search successful",
+  "Data": [
+    {
+      "URL": "https://register.fca.org.uk/services/V0.1/Firm/123456",
+      "Status": "Authorised",
+      "Reference Number": "123456",
+      "Type of business or Individual": "Firm",
+      "Name": "Acme Payments Ltd (Postcode: EC2A 1AB)"
+    },
+    {
+      "URL": "https://register.fca.org.uk/services/V0.1/Firm/222222",
+      "Status": "No longer authorised",
+      "Reference Number": "222222",
+      "Type of business or Individual": "Firm",
+      "Name": "Acme Payments Holdings Limited (Postcode: M1 1AA)"
+    },
+    {
+      "URL": "https://register.fca.org.uk/services/V0.1/Firm/333333",
+      "Status": "Authorised",
+      "Reference Number": "333333",
+      "Type of business or Individual": "Firm",
+      "Name": "Zeta Capital Partners LLP (Postcode: EC1A 1BB)"
+    }
+  ]
+}

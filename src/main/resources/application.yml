@@ -45,6 +45,35 @@ kyb:
       max-retries: 3
       base-delay: 500ms
       max-delay: 10s
+  fca:
+    # FCA Financial Services Register API (free registration). Path and headers follow the
+    # third-party client docs; the official docs are JavaScript-only (verified by smoke test).
+    base-url: https://register.fca.org.uk/services/V0.1
+    auth-email: ${FCA_AUTH_EMAIL:}
+    auth-key: ${FCA_AUTH_KEY:}
+    # Free, no SLA (spec §5.2): results are cached for a week and served stale during outages.
+    cache-ttl: 7d
+    connect-timeout: 5s
+    read-timeout: 10s
+    rate-limit:
+      # Documented limit: 50 requests per 10 seconds per user (429 then a 1-minute block).
+      limit: 45
+      period: 10s
+      max-wait: 2s
+    circuit-breaker:
+      failure-rate-threshold: 50
+      sliding-window-size: 10
+      minimum-number-of-calls: 5
+      wait-duration-in-open-state: 60s
+      permitted-calls-in-half-open-state: 2
+    # Firm-details lookups per check (each one compares the Companies House number).
+    max-details-lookups: 3
+    authorised-statuses: [Authorised, EEA Authorised, Registered]
+    # Unauthorised and clone-firm entries, recognised by status or by name.
+    warning-statuses: [Unauthorised]
+    warning-name-markers: [clone, unauthorised, not authorised]
+    # Added to name similarity when the FCA postcode equals the registered office postcode.
+    postcode-boost: 0.05
   sanctions:
     # Bulk data only, never the hosted API (spec §5.3). The index names the current export version,
     # the file URL (a 307 to a versioned artifact) and its SHA-1.
