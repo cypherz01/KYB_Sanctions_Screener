@@ -56,6 +56,9 @@ public class FcaRegisterClient {
     public static final String SOURCE = "fca-register";
     private static final Logger log = LoggerFactory.getLogger(FcaRegisterClient.class);
     private static final Pattern PARENTHESISED = Pattern.compile("\\([^)]*\\)");
+    private static final String UNAVAILABLE_REASON = "unavailableReason";
+    private static final String FIRMS_UNAVAILABLE = "firmsUnavailable";
+    private static final String NOT_STORED = "no response was stored for this request";
 
     private final FcaRegisterApi api;
     private final SourceCache cache;
@@ -98,12 +101,24 @@ public class FcaRegisterClient {
      * @param postcode registered office postcode, compared when the number cannot be; may be null
      */
     public FcaAssessment assess(String companyName, String companyNumber, String postcode) {
+        return assess(companyName, companyNumber, postcode, new LiveLookups(companyName));
+    }
+
+    /**
+     * Repeats {@link #assess} using only the responses a past assessment stored: no call, no cache.
+     * The same inputs give an equal assessment, including whatever was unavailable at the time.
+     */
+    public FcaAssessment reassess(String companyName, String companyNumber, String postcode, FcaSnapshot snapshot) {
+        return assess(companyName, companyNumber, postcode, new StoredLookups(snapshot));
+    }
+
+    private FcaAssessment assess(String companyName, String companyNumber, String postcode, Lookups lookups) {
         Responses responses = new Responses();
         List<String> evidence = new ArrayList<>();
 
         Fetched search;
         try {
-            search = fetch("search:" + companyName.trim().toLowerCase(Locale.ROOT), () -> api.searchFirms(companyName));
+            search = lookups.search();
         } catch (FcaUnavailableException e) {
             return new FcaAssessment(
                     FcaAvailability.UNAVAILABLE,
@@ -114,7 +129,7 @@ public class FcaRegisterClient {
                     null,
                     false,
                     false,
-                    null,
+                    JsonNodeFactory.instance.objectNode().put(UNAVAILABLE_REASON, e.getMessage()),
                     e.getMessage());
         }
         responses.add(search);
@@ -153,7 +168,7 @@ public class FcaRegisterClient {
             }
         }
 
-        FcaFirmMatch match = matchAuthorised(authorised, companyNumber, postcode, responses, evidence);
+        FcaFirmMatch match = matchAuthorised(authorised, companyNumber, postcode, lookups, responses, evidence);
         if (match == null && authorised.isEmpty()) {
             evidence.add("No authorised firm with a matching name");
         }
@@ -174,6 +189,7 @@ public class FcaRegisterClient {
             List<Scored> authorised,
             String companyNumber,
             String postcode,
+            Lookups lookups,
             Responses responses,
             List<String> evidence) {
         authorised.sort(
@@ -181,18 +197,19 @@ public class FcaRegisterClient {
                         .frn()));
         String number = canonical(companyNumber);
         FcaFirmMatch best = null;
-        int lookups = 0;
+        int detailLookups = 0;
         for (Scored s : authorised) {
             FcaSearchHit hit = s.hit();
             FcaFirmDetails details = null;
-            if (number != null && lookups < props.maxDetailsLookups()) {
-                lookups++;
+            if (number != null && detailLookups < props.maxDetailsLookups()) {
+                detailLookups++;
                 try {
-                    Fetched firm = fetch("firm:" + hit.frn(), () -> api.firm(hit.frn()));
+                    Fetched firm = lookups.firm(hit.frn());
                     responses.add(firm);
                     responses.firms().set(hit.frn(), firm.payload);
                     details = mapper.toFirmDetails(firm.payload).orElse(null);
                 } catch (FcaUnavailableException e) {
+                    responses.firmsUnavailable().put(hit.frn(), e.getMessage());
                     evidence.add("Firm details for FRN " + hit.frn() + " unavailable (" + e.getMessage()
                             + "); compared on name only");
                 }
@@ -261,6 +278,65 @@ public class FcaRegisterClient {
 
         ObjectNode firms() {
             return payload.has("firms") ? (ObjectNode) payload.get("firms") : payload.putObject("firms");
+        }
+
+        ObjectNode firmsUnavailable() {
+            return payload.has(FIRMS_UNAVAILABLE)
+                    ? (ObjectNode) payload.get(FIRMS_UNAVAILABLE)
+                    : payload.putObject(FIRMS_UNAVAILABLE);
+        }
+    }
+
+    /** Where an assessment's Register responses come from. An outage is thrown either way. */
+    private interface Lookups {
+        Fetched search();
+
+        Fetched firm(String frn);
+    }
+
+    private final class LiveLookups implements Lookups {
+        private final String companyName;
+
+        LiveLookups(String companyName) {
+            this.companyName = companyName;
+        }
+
+        @Override
+        public Fetched search() {
+            return fetch("search:" + companyName.trim().toLowerCase(Locale.ROOT), () -> api.searchFirms(companyName));
+        }
+
+        @Override
+        public Fetched firm(String frn) {
+            return fetch("firm:" + frn, () -> api.firm(frn));
+        }
+    }
+
+    /** The stored responses, each with the provenance of the assessment as a whole. */
+    private record StoredLookups(FcaSnapshot snapshot) implements Lookups {
+
+        @Override
+        public Fetched search() {
+            JsonNode search = snapshot.payload().get("search");
+            if (search == null) {
+                throw new FcaUnavailableException(
+                        snapshot.payload().path(UNAVAILABLE_REASON).asText(NOT_STORED));
+            }
+            return stored(search);
+        }
+
+        @Override
+        public Fetched firm(String frn) {
+            JsonNode firm = snapshot.payload().path("firms").get(frn);
+            if (firm == null) {
+                throw new FcaUnavailableException(
+                        snapshot.payload().path(FIRMS_UNAVAILABLE).path(frn).asText(NOT_STORED));
+            }
+            return stored(firm);
+        }
+
+        private Fetched stored(JsonNode payload) {
+            return new Fetched(payload, snapshot.fetchedAt(), snapshot.fromCache(), snapshot.stale());
         }
     }
 

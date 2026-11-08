@@ -80,7 +80,7 @@ class CheckApiIntegrationTest {
     void reset() {
         wm.resetAll();
         cache.clearAll();
-        jdbc.update("DELETE FROM kyb_check");
+        jdbc.update("TRUNCATE kyb_check CASCADE"); // checks are append-only: DELETE is rejected
         jdbc.update("DELETE FROM sanctions_dataset_version");
         OpenSanctionsStubs.publish(
                 wm.getRuntimeInfo().getWireMock(), wm.baseUrl(), "check-v1", "sanctions/entities-screening.ftm.json");

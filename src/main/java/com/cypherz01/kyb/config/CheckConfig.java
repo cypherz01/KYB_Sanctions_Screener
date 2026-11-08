@@ -2,11 +2,16 @@ package com.cypherz01.kyb.config;
 
 import com.cypherz01.kyb.api.ApiKeyFilter;
 import com.cypherz01.kyb.api.ApiSecurityProperties;
+import com.cypherz01.kyb.audit.AuditRepository;
+import com.cypherz01.kyb.check.CheckAuditService;
+import com.cypherz01.kyb.check.CheckEvaluator;
 import com.cypherz01.kyb.check.CheckRepository;
 import com.cypherz01.kyb.check.CheckService;
 import com.cypherz01.kyb.check.ChecksProperties;
+import com.cypherz01.kyb.check.EvidenceSnapshots;
 import com.cypherz01.kyb.check.SubjectExtractor;
 import com.cypherz01.kyb.companieshouse.CompaniesHouseClient;
+import com.cypherz01.kyb.companieshouse.CompaniesHouseMapper;
 import com.cypherz01.kyb.fca.FcaRegisterClient;
 import com.cypherz01.kyb.matching.MatchingProperties;
 import com.cypherz01.kyb.matching.NameNormaliser;
@@ -29,6 +34,8 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({ChecksProperties.class, ScoringProperties.class, ApiSecurityProperties.class})
@@ -52,16 +59,35 @@ class CheckConfig {
     }
 
     @Bean
-    CheckService checkService(
-            CompaniesHouseClient companiesHouse,
-            FcaRegisterClient fca,
-            SanctionsRepository datasets,
+    AuditRepository auditRepository(JdbcTemplate jdbc, ObjectMapper json) {
+        return new AuditRepository(jdbc, json);
+    }
+
+    @Bean
+    CheckEvaluator checkEvaluator(
             ScreeningService screening,
             NameNormaliser normaliser,
             SubjectExtractor extractor,
             RiskScorer scorer,
+            ChecksProperties properties) {
+        return new CheckEvaluator(screening, normaliser, extractor, scorer, properties);
+    }
+
+    @Bean
+    EvidenceSnapshots evidenceSnapshots(CompaniesHouseMapper mapper, FcaRegisterClient fca) {
+        return new EvidenceSnapshots(mapper, fca);
+    }
+
+    @Bean
+    CheckService checkService(
+            CompaniesHouseClient companiesHouse,
+            FcaRegisterClient fca,
+            SanctionsRepository datasets,
+            CheckEvaluator evaluator,
+            EvidenceSnapshots snapshots,
             CheckRepository checks,
-            ChecksProperties properties,
+            AuditRepository audit,
+            PlatformTransactionManager transactions,
             ObjectMapper json,
             Clock clock,
             MeterRegistry meters) {
@@ -69,15 +95,27 @@ class CheckConfig {
                 companiesHouse,
                 fca,
                 datasets,
-                screening,
-                normaliser,
-                extractor,
-                scorer,
+                evaluator,
+                snapshots,
                 checks,
-                properties,
+                audit,
+                new TransactionTemplate(transactions),
                 json,
                 clock,
                 meters);
+    }
+
+    @Bean
+    CheckAuditService checkAuditService(
+            CheckRepository checks,
+            AuditRepository audit,
+            SanctionsRepository datasets,
+            EvidenceSnapshots snapshots,
+            CheckEvaluator evaluator,
+            ObjectMapper json,
+            Clock clock,
+            MeterRegistry meters) {
+        return new CheckAuditService(checks, audit, datasets, snapshots, evaluator, json, clock, meters);
     }
 
     /** Only /api/**: health, metrics and the API docs stay open (local-only deployment). */

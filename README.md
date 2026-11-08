@@ -67,6 +67,26 @@ Checked on real data on 2026-11-07:
 
 Each check took about 1.5–2 s with the source caches empty.
 
+## Audit and replay
+
+Every check stores what it rested on, in one transaction with the result: the raw response from each source (with its fetch time and whether it was cached or stale), the sanctions dataset version, the scoring and engine versions, and a log of events.
+
+```sh
+curl http://localhost:8080/api/v1/checks/$ID/audit -H "X-Api-Key: $KYB_API_KEY"            # the full record
+curl -X POST http://localhost:8080/api/v1/checks/$ID/replay -H "X-Api-Key: $KYB_API_KEY"   # re-run it
+```
+
+A replay repeats normalisation, matching and scoring from those snapshots, against the dataset version the check used, as of the date it ran. It makes no external call and reads no cache, so it gives the same answer if a director has since been delisted or a source has gone down. It runs through the same code as a live check, not a second implementation.
+
+- **What "identical" means.** The whole result is compared field by field, not just the decision and score, and any difference is reported by path. An unchanged total could otherwise hide a changed factor.
+- **Replay runs today's code and rules.** Old code is not kept, so a replay after an engine or scoring change shows the new version as a difference, along with anything that changes as a result. That is what such a replay is for: it shows what the change does to a past decision. To reproduce the original under its own rules, run the release matching its recorded `engineVersion`. Bump `kyb.checks.engine-version` whenever matching or scoring code changes, or a difference will have no version to explain it.
+- **Retention.** The newest 3 sanctions dataset versions are kept. A check whose version has been pruned cannot be replayed, and asking returns `409` rather than screening against missing rows, which would look clean. Its stored result, snapshots and audit trail are kept indefinitely, and the refusal is recorded. Raise `kyb.sanctions.keep-versions` to replay further back, at about 200 MB of database per version (measured on the full dataset). Snapshots and events are never deleted, so storage grows with the number of checks, at about 33 kB of snapshots per check in the run below.
+- **Append-only, enforced.** Database triggers reject `UPDATE` and `DELETE` on checks, snapshots and events. This stops mistakes, not a database administrator: `TRUNCATE` stays possible so an environment can be reset.
+
+Checked on real data on 2026-11-08: Tesco, Barclays Bank UK, Lloyds Banking Group, HSBC Bank and Yorkshire Electricity Group, plus a repeat check served from the cache, against the full dataset. All six replayed identically, and again after restarting the application, which is when any dependence on hash ordering would show. A replay took 100–300 ms, or about 600 ms for the first after a restart.
+
+Known limitations: replay trusts the stored data, since nothing signs it. A check that fails part-way (say, an unknown company) leaves no record, only a log line.
+
 ## FCA Register
 
 The regulatory check uses the free [FCA Financial Services Register API](https://register.fca.org.uk/Developer/s/). Add `FCA_AUTH_EMAIL` and `FCA_AUTH_KEY` to `.env`. Without them, checks still run and report that regulatory status could not be verified.
@@ -88,7 +108,7 @@ curl -X POST http://localhost:8080/api/v1/admin/sanctions/import   # 202, runs i
 curl http://localhost:8080/api/v1/admin/sanctions/status           # active version, counts by schema
 ```
 
-- **Atomic and versioned:** each import loads under a new dataset version that screening cannot see until a single transaction makes it active. A failed or interrupted import never touches the active data. The last 3 completed versions are kept so past checks can be replayed against the exact data they used.
+- **Atomic and versioned:** each import loads under a new dataset version that screening cannot see until a single transaction makes it active. A failed or interrupted import never touches the active data. The last 3 completed versions are kept so past checks can be [replayed](#audit-and-replay) against the exact data they used.
 - **Idempotent:** if the published SHA-1 matches the active version, nothing is downloaded. Downloaded files are checksum-verified.
 - **What is screened:** `Person`, `Company`, `Organization` and `LegalEntity` entities tagged `sanction` or `sanction.linked`, with their names, aliases and previous names (not FtM "weak" aliases), birth dates, nationalities, countries, source lists and programmes. Relatives without a sanction, counter-sanctions, debarments and export-control-only entries are left out.
 
