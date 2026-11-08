@@ -1,0 +1,18 @@
+{
+  "mappings": [
+    {
+      "request": {"method": "GET", "urlPath": "/datasets/latest/sanctions/index.json"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "name": "sanctions", "type": "collection", "version": "synthetic-demo-1",
+        "resources": [{"name": "entities.ftm.json", "checksum": "ec3afa8866be679f90f1d74fb75ab6d6f9023f2a",
+                       "mime_type": "application/json+ftm", "size": 830, "path": "entities.ftm.json",
+                       "url": "{{request.baseUrl}}/datasets/latest/sanctions/entities.ftm.json"}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/datasets/latest/sanctions/entities.ftm.json"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json+ftm"},
+                   "bodyFileName": "entities.ftm.json", "transformers": []}
+    }
+  ]
+}

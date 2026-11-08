@@ -1,46 +1,146 @@
 # UK KYB & Sanctions Screening Service
 
-An automated Know Your Business (KYB) check for UK companies. It combines Companies House, the FCA Register, and a locally hosted, explainable sanctions matcher built on OpenSanctions bulk data.
+[![CI](https://github.com/cypherz01/KYB_Sanctions_Screener/actions/workflows/ci.yml/badge.svg)](https://github.com/cypherz01/KYB_Sanctions_Screener/actions/workflows/ci.yml)
 
-> **Status:** work in progress. The project is built milestone by milestone, test-first. Each milestone is a pull request with two commits: the failing tests (red), then the implementation that makes them pass (green).
+An automated Know Your Business check for UK companies, with a self-built, explainable sanctions matcher. Give it a company number and it returns `PASS`, `REVIEW` or `FAIL`, every reason behind the decision, and a record that can reproduce that decision later.
+
+> **Disclaimer:** a portfolio project, not a compliance product. Do not use it for real onboarding decisions. Its sanctions data is licensed for **non-commercial use only**.
+
+## What it does
+
+Before a bank or payments firm takes on a business as a customer, it has to establish who it is dealing with: is the company real and active, who runs and owns it, is it properly regulated, and is anyone involved on a sanctions list? That process is called Know Your Business (KYB). Done by hand, it means searching several public registers and comparing names across them.
+
+This service does that in one call. It reads the company, its directors and its owners from Companies House, looks up its status on the FCA Register, and compares every name against a local copy of the world's sanctions lists, allowing for misspellings, reordered names and other alphabets. The result is a score with the evidence for every point, and everything the decision rested on is stored, so it can be re-run and shown to come out the same.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    client([API client]) -->|POST /api/v1/checks| api[CheckController<br/>API key, RFC 7807 errors]
+    api --> service[CheckService]
+
+    subgraph gather [Gather]
+        service --> ch[CompaniesHouseClient<br/>rate limit, retry, cache]
+        service --> fca[FcaRegisterClient<br/>circuit breaker, stale fallback]
+    end
+
+    ch --> chapi[(Companies House API)]
+    fca --> fcaapi[(FCA Register API)]
+
+    subgraph decide [Decide: also used by replay]
+        service --> evaluator[CheckEvaluator]
+        evaluator --> matcher[ScreeningService<br/>candidates, then NameMatcher]
+        evaluator --> scorer[RiskScorer<br/>scoring-rules.yml]
+    end
+
+    matcher --> sanctions[(Sanctions tables<br/>versioned)]
+    service --> store[(Check, snapshots,<br/>audit events<br/>append-only)]
+
+    importer[SanctionsImportService<br/>nightly] --> sanctions
+    importer --> os[(OpenSanctions<br/>bulk download)]
+```
+
+What happens on `POST /api/v1/checks`:
+
+1. **Gather.** The profile, officers, PSCs (persons with significant control) and PSC exemptions come from Companies House, through a cache. The active sanctions dataset version is pinned, so an import mid-check cannot split the check across two datasets. The FCA Register assessment comes last, and an outage there does not stop the check.
+2. **Decide who is screened.** The company, every current officer and every current PSC. One party holding several roles is screened once. Super-secure PSCs cannot be screened, and the result notes this.
+3. **Screen** each subject against that one dataset: Postgres retrieves up to 50 candidates, then Java scores them and records the evidence.
+4. **Score** with deterministic rules, whose version is recorded on the check.
+5. **Store** the result, the raw response from each source and the audit events in one transaction, and return the result with `201`.
 
 ## Quick start
 
-Requires Docker. Java and Maven are only needed for running tests outside Docker (the Maven wrapper is included).
+### See it work: no keys, about 3 minutes
+
+Needs Docker and bash. On Windows, use Git Bash; `bash` in PowerShell is usually WSL, which fails without a Linux distribution installed.
 
 ```sh
-cp .env.example .env     # then set KYB_API_KEY (any long random string) and the source keys
-docker compose up -d --build --wait
-curl http://localhost:8080/actuator/health
+git clone https://github.com/cypherz01/KYB_Sanctions_Screener.git
+cd KYB_Sanctions_Screener
+scripts/demo.sh
+```
 
+This starts the service with invented companies, an invented sanctions list and stubs in place of the real sources. Nothing about it describes any real person or company. The first run spends most of its time building the image. This is the output, from a real run:
+
+```text
+== A clean company passes
+BRIGHT BAKERY LTD (07654321)
+decision: PASS, score: 0
+factors:
+
+== A matching clone-firm warning on the FCA Register sends a company to a person
+ACME PAYMENTS LTD (12345678)
+decision: REVIEW, score: 60
+factors:  FCA_CLONE_OR_UNAUTHORISED_MATCH
+
+== A sanctioned director fails a company automatically
+ACME WIDGETS LTD (01234567)
+decision: FAIL, score: 0
+factors:  SANCTIONS_STRONG_MATCH
+automatic: a strong sanctions match fails a company whatever its score
+why the match was made:
+  - Names identical
+  - Birth year and month match (1971-03)
+  - Nationality matches (RU)
+  - Name similarity 1.00 (jaro-winkler 1.00, token overlap 1.00, phonetic 1.00, alignment 1.00)
+
+== The same person in Cyrillic is found too, through transliteration
+Иван Петров matches Ivan Petrov: STRONG, similarity 1.0
+
+== Any past decision can be reproduced from what it stored, with no external call
+replay of the failed check: identical: true
+
+== And everything that happened to it is on record
+events: CHECK_REQUESTED SOURCES_GATHERED CHECK_COMPLETED CHECK_REPLAYED
+```
+
+Explore further at <http://localhost:8090/swagger-ui.html> with the key `demo-key`. Stop it with `docker compose -f docker-compose.demo.yml down`.
+
+### Check a real company
+
+You need a free [Companies House key](https://developer.company-information.service.gov.uk): create a **Live** application, as a Test key is refused by the real API. FCA credentials are optional. Without them, checks still run and report that regulatory status could not be verified.
+
+```sh
+cp .env.example .env                                  # then set COMPANIES_HOUSE_API_KEY in .env
+echo "KYB_API_KEY=$(openssl rand -hex 24)" >> .env    # the key your calls to this service will send
+set -a; . ./.env; set +a                              # makes KYB_API_KEY available to the commands below
+
+docker compose up -d --build --wait
+```
+
+The first start downloads about 380 MB of sanctions data in the background. Until that is loaded, a check is refused with `503`, because "no matches" against no data would read as a clean result. Wait for it:
+
+```sh
+until curl -fs http://localhost:8080/api/v1/admin/sanctions/status -H "X-Api-Key: $KYB_API_KEY" | grep -q '"active":{'; do sleep 5; done
+```
+
+Then run a check:
+
+```sh
 curl -X POST http://localhost:8080/api/v1/checks -H "X-Api-Key: $KYB_API_KEY" \
      -H 'Content-Type: application/json' -d '{"companyNumber": "09740322"}'
 ```
 
-Every `/api/**` call needs the `X-Api-Key` header. If `KYB_API_KEY` is not set, the API refuses every call (fails closed) rather than running open. Health (`/actuator/health`), metrics (`/actuator/prometheus`) and the API docs (`/swagger-ui.html`, `/v3/api-docs`) stay open, since the service is meant to run locally.
+The service and its database are published on `localhost` only, at ports 8080 and 5433. Set `KYB_PORT` or `DB_PORT` in `.env` if those are taken. To run the jar outside Docker, set `DB_URL` to `jdbc:postgresql://localhost:5433/kyb`.
 
-Running the jar outside Docker? A native Postgres already listening on `localhost:5432` will take the connection, and the app then fails with `password authentication failed for user "kyb"`. Point `DB_URL` at another port instead.
+## API
 
-Run the tests (needs JDK 21 and a running Docker daemon for Testcontainers):
+Every `/api/**` call needs the `X-Api-Key` header. If `KYB_API_KEY` is not set, the API refuses every call rather than running open. Errors are RFC 7807 problem details. Interactive docs are at `/swagger-ui.html`.
 
-```sh
-./mvnw verify
-```
+| Method and path | Purpose |
+|---|---|
+| `POST /api/v1/checks` | Run a check: `{"companyNumber": "..."}`. Returns `201` with a `Location`. |
+| `GET /api/v1/checks/{id}` | The stored result, byte for byte as first returned. |
+| `GET /api/v1/checks/{id}/audit` | The raw source data, versions and events behind a check. |
+| `POST /api/v1/checks/{id}/replay` | Re-run a check from what it stored. |
+| `POST /api/v1/screen/name` | Screen one name: `{"name": "...", "type": "PERSON", "birthDate": "1971-03", "country": "RU"}`. |
+| `POST /api/v1/admin/sanctions/import` | Start a sanctions import (`202`, runs in the background). |
+| `GET /api/v1/admin/sanctions/status` | The active dataset version, last import and counts. |
+| `GET /actuator/health`, `/actuator/prometheus` | Health and metrics. Not behind the API key. |
 
-No test calls a real external API; WireMock stands in for them. To check against the real Companies House API manually (needs a free key from the [developer hub](https://developer.company-information.service.gov.uk)):
+## Risk scoring
 
-```sh
-COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
-```
-
-## KYB checks
-
-`POST /api/v1/checks` with `{"companyNumber": "..."}` runs a full check and returns `201` with a `Location` header. `GET /api/v1/checks/{checkId}` returns the stored result byte for byte as it was first returned.
-
-1. **Gather.** From Companies House it fetches the profile, officers, PSCs and PSC exemptions. It then pins the active sanctions dataset version and assesses the company on the FCA Register.
-2. **Decide who is screened.** That is the company, every current officer and every current PSC, individual or corporate. One party holding several roles (for example a director who is also a PSC) is screened once. Super-secure PSCs cannot be screened, and the result notes this.
-3. **Screen** every subject against that one dataset version, with month of birth and nationality.
-4. **Score** with deterministic rules from [`scoring-rules.yml`](src/main/resources/scoring-rules.yml), whose version is recorded on every check:
+Rules, points and thresholds live in [`scoring-rules.yml`](src/main/resources/scoring-rules.yml), whose version is recorded on every check.
 
 | Factor | Points |
 |---|---|
@@ -55,17 +155,15 @@ COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
 | Possible sanctions match | 35, plus up to 15 scaled by similarity |
 | **Strong sanctions match** | **automatic FAIL** |
 
-A total of 40 or more gives `REVIEW`, and 80 or more gives `FAIL`. Each factor carries a plain-English `detail`, the source and fetch time it rests on, and for sanctions the subject, the matched entity and the matcher's evidence. Results are stored append-only with the dataset version, scoring version and engine version. Stale cached data is flagged, never hidden.
+A total of 40 or more gives `REVIEW`, and 80 or more gives `FAIL`. A strong match fails a company whatever the total and adds no points of its own, so a `FAIL` can show a score of 0: the `autoFail` flag on the factor says why. Each factor carries a plain-English `detail`, the source and fetch time it rests on, and for sanctions the subject, the matched entity and the matcher's evidence. Stale cached data is flagged, never hidden.
 
-Checked on real data on 2026-11-07:
+Checked on real data on 2026-11-07 and 2026-11-08:
 
 | Company | Decision | Why |
 |---|---|---|
 | Tesco PLC (00445790) | PASS, 0 | Listed company, so the PSC exemption explains why no PSCs are declared |
 | Barclays Bank UK PLC (09740322) | PASS, 5 | Officer churn only. FCA FRN 759676 matched by Companies House number |
 | Lloyds Banking Group PLC (SC095000) | PASS, 30 | Officer churn, plus "regulated SIC code but not authorised": a holding company (SIC 64205) is not itself on the Register |
-
-Each check took about 1.5–2 s with the source caches empty.
 
 ## Audit and replay
 
@@ -83,47 +181,28 @@ A replay repeats normalisation, matching and scoring from those snapshots, again
 - **Retention.** The newest 3 sanctions dataset versions are kept. A check whose version has been pruned cannot be replayed, and asking returns `409` rather than screening against missing rows, which would look clean. Its stored result, snapshots and audit trail are kept indefinitely, and the refusal is recorded. Raise `kyb.sanctions.keep-versions` to replay further back, at about 200 MB of database per version (measured on the full dataset). Snapshots and events are never deleted, so storage grows with the number of checks, at about 33 kB of snapshots per check in the run below.
 - **Append-only, enforced.** Database triggers reject `UPDATE` and `DELETE` on checks, snapshots and events. This stops mistakes, not a database administrator: `TRUNCATE` stays possible so an environment can be reset.
 
-Checked on real data on 2026-11-08: Tesco, Barclays Bank UK, Lloyds Banking Group, HSBC Bank and Yorkshire Electricity Group, plus a repeat check served from the cache, against the full dataset. All six replayed identically, and again after restarting the application, which is when any dependence on hash ordering would show. A replay took 100–300 ms, or about 600 ms for the first after a restart.
-
-Known limitations: replay trusts the stored data, since nothing signs it. A check that fails part-way (say, an unknown company) leaves no record, only a log line.
+Checked on real data on 2026-11-08: Tesco, Barclays Bank UK, Lloyds Banking Group, HSBC Bank and Yorkshire Electricity Group, plus a repeat check served from the cache, against the full dataset. All six replayed identically, and again after restarting the application, which is when any dependence on hash ordering would show.
 
 ## FCA Register
 
-The regulatory check uses the free [FCA Financial Services Register API](https://register.fca.org.uk/Developer/s/). Add `FCA_AUTH_EMAIL` and `FCA_AUTH_KEY` to `.env`. Without them, checks still run and report that regulatory status could not be verified.
+The regulatory check uses the free [FCA Financial Services Register API](https://register.fca.org.uk/Developer/s/). Add `FCA_AUTH_EMAIL` and `FCA_AUTH_KEY` to `.env`.
 
 - **Matching a company to a firm.** Companies House does not record the FCA reference number (FRN), so the company name is searched on the Register. Each hit is scored with the same normaliser and matcher used for sanctions. For the strongest authorised hits, the firm details are fetched: the same Companies House number is a certain match, and a different one rules the firm out. Otherwise the match rests on name (plus postcode), and its confidence and basis are reported.
 - **Clone and unauthorised firms.** The API has no separate warning list. Entries with status `Unauthorised`, or names marked `(Clone)` / `(Clone of FCA authorised firm)`, are reported as warnings when their name matches.
-- **No SLA, so built to degrade.** A client-side rate limiter stays below the documented 50 requests per 10 seconds, and a circuit breaker stops calls to a failing Register. Responses are cached for 7 days in Postgres. During an outage, expired results are served flagged `STALE` with their fetch time. If nothing is cached, the result is `UNAVAILABLE` and the check still completes.
 
-Verified against the live Register on 2026-11-07, which the official docs (JavaScript-only) could not be. Barclays Bank UK PLC was matched to FRN 759676 by its Companies House number. Run that check yourself with `./mvnw -Psmoke test -Dtest=FcaRegisterSmokeTest`, with the two variables set.
-
-Known limitations: only the first page of search results (20 firms) is considered. Clone detection depends on the Register's naming conventions. Permissions are not yet compared with the company's activities.
+Verified against the live Register on 2026-11-07. Barclays Bank UK PLC was matched to FRN 759676 by its Companies House number. Run that check yourself with `./mvnw -Psmoke test -Dtest=FcaRegisterSmokeTest`, with the two variables set.
 
 ## Sanctions data
 
-Sanctions screening runs against a local copy of the [OpenSanctions](https://www.opensanctions.org/datasets/sanctions/) `sanctions` collection, downloaded as bulk FollowTheMoney JSON (about 380 MB). The hosted API is not used. On the first `docker compose up` with an empty database, the app imports the data in the background. After that it re-imports nightly at 03:30 UK time. To trigger or inspect an import yourself:
+Screening runs against a local copy of the [OpenSanctions](https://www.opensanctions.org/datasets/sanctions/) `sanctions` collection, downloaded as bulk FollowTheMoney JSON. The first start with an empty database imports it in the background, and it re-imports nightly at 03:30 UK time.
 
-```sh
-curl -X POST http://localhost:8080/api/v1/admin/sanctions/import   # 202, runs in the background
-curl http://localhost:8080/api/v1/admin/sanctions/status           # active version, counts by schema
-```
-
-- **Atomic and versioned:** each import loads under a new dataset version that screening cannot see until a single transaction makes it active. A failed or interrupted import never touches the active data. The last 3 completed versions are kept so past checks can be [replayed](#audit-and-replay) against the exact data they used.
-- **Idempotent:** if the published SHA-1 matches the active version, nothing is downloaded. Downloaded files are checksum-verified.
-- **What is screened:** `Person`, `Company`, `Organization` and `LegalEntity` entities tagged `sanction` or `sanction.linked`, with their names, aliases and previous names (not FtM "weak" aliases), birth dates, nationalities, countries, source lists and programmes. Relatives without a sanction, counter-sanctions, debarments and export-control-only entries are left out.
+- **Atomic and versioned.** Each import loads under a new dataset version that screening cannot see until a single transaction makes it active. A failed or interrupted import never touches the active data.
+- **Idempotent.** If the published SHA-1 matches the active version, nothing is downloaded. Downloaded files are checksum-verified.
+- **What is screened.** `Person`, `Company`, `Organization` and `LegalEntity` entities tagged `sanction` or `sanction.linked`, with their names, aliases and previous names (not FtM "weak" aliases), birth dates, nationalities, countries, source lists and programmes. Relatives without a sanction, counter-sanctions, debarments and export-control-only entries are left out.
 
 ## Name matching
 
-Screen a single name against the active dataset:
-
-```sh
-curl -X POST http://localhost:8080/api/v1/screen/name -H 'Content-Type: application/json' \
-     -d '{"name": "PETROV, Ivan", "type": "PERSON", "birthDate": "1971-03", "country": "RU"}'
-```
-
-Each match carries a similarity (0 to 1), a band (`STRONG` ≥ 0.90, `POSSIBLE` ≥ 0.80; anything lower is discarded), the source lists and programmes, and an `evidence` list explaining the score, for example `Phonetic match: 'mohammed' ~ 'muhammad'`, `Birth year matches (1971)` or `'sergeyevich' appears only in the sanctions name`.
-
-How it works:
+Each match carries a similarity (0 to 1), a band (`STRONG` ≥ 0.90, `POSSIBLE` ≥ 0.80; anything lower is discarded), the source lists and programmes, and an `evidence` list explaining the score, for example `Phonetic match: 'mohammed' ~ 'muhammad'` or `Birth year matches (1971)`.
 
 1. **Normalise** both sides identically. ICU transliterates any script to Latin (Russian uses BGN/PCGN, as sanctions lists do, so `Жуков` becomes `zhukov`) and strips diacritics. The name is then lower-cased, `&` becomes `and`, and punctuation is removed. Titles are dropped from people and legal forms from organisations (`Ltd`, `LLC`, a leading `OOO`, ...). Each token gets a Double Metaphone key.
 2. **Retrieve** up to 50 candidates in Postgres: trigram similarity (`pg_trgm`, GIN index) unioned with exact phonetic-key matches, restricted to comparable entity types. A person is never compared with a company.
@@ -131,9 +210,23 @@ How it works:
 
 All lists, weights and thresholds live in `application.yml`.
 
-### Accuracy on the fixture set
+## Design decisions and trade-offs
 
-`src/test/resources/matching/name-pairs.psv` holds 59 labelled pairs covering spec §8.4. They include word order, diacritics, transliteration, missing middle names, initials, typos, common names disambiguated by birth date, legal suffixes, `&`/`and`, near-misses that share a token, and one-word aliases. The table is regenerated by `MatchingFixturesTest` (`target/matching-accuracy.md`). Five "weak at most" pairs are excluded from the counts.
+**Bulk sanctions data and a local matcher, not a hosted API.** The hosted OpenSanctions API's free keys exclude hobby projects, while the bulk data is free for non-commercial use. It is also the more interesting system: owning the data means owning the matching, so every score can be explained and a past decision re-run against the exact data it used. The cost is storage, a nightly import, and being a day behind at worst, where a commercial screening service would be nearer real time.
+
+**Rate limiting and caching for Companies House.** The API allows 600 requests per 5 minutes, and a 429 lasts for the rest of that window. So a client-side rate limit sits below it, at 550, to avoid ever being refused. A retry with jittered backoff handles what still goes wrong. Responses are cached for 24 hours in Caffeine and Postgres, so they survive a restart and repeat checks are fast. An expired entry is kept, so an outage can serve it, flagged stale, rather than fail the check. The cost is that a check can be up to a day behind the register, and the result shows the fetch time so that is visible.
+
+**Graceful degradation for the FCA Register.** The API is free with no SLA, so it is treated as something that will go down, and the service is built to degrade rather than fail. A circuit breaker stops calls to a failing Register, and responses are cached for 7 days. During an outage, expired results are served flagged `STALE`. If nothing is cached, the check still completes, with a 10-point `FCA_UNAVAILABLE` factor and the "not authorised" rule standing down, because an outage is not evidence of anything. Companies House is different: without the company itself there is nothing to check, so that returns `503`.
+
+**Rule-based, explainable scoring, not ML.** A compliance decision has to be justified to a person, possibly years later. Fixed rules with versioned weights give a reason for every point and the same answer every time. There is also no labelled data here to train on. The cost is that rules only catch what someone thought of, and the weights are judgement rather than fitted.
+
+**Matching thresholds: false positives against false negatives.** A false positive costs an analyst's time, while a false negative can mean dealing with a sanctioned party, so the matcher leans towards recall. Only `STRONG` fails a company automatically, and `POSSIBLE` sends it to a person, which is how a generous recall bar stays affordable. The table under [Matching accuracy](#matching-accuracy) shows the trade directly. Birth date and nationality do much of the separating, as a common name alone proves little.
+
+**Reproducibility and audit.** Replay runs through the same code as a live check, from stored raw responses, and compares the entire result. Snapshots are stored as `JSON` rather than `JSONB`, which would re-sort keys, and the clock ticks in microseconds to match what Postgres stores, because either could otherwise make a replay differ for no real reason. Audit tables are append-only, enforced by the database, and a replay that cannot be honest is refused rather than attempted. See [Audit and replay](#audit-and-replay).
+
+## Matching accuracy
+
+`src/test/resources/matching/name-pairs.psv` holds 59 labelled pairs covering word order, diacritics, transliteration, missing middle names, initials, typos, common names disambiguated by birth date, legal suffixes, `&`/`and`, near-misses that share a token, and one-word aliases. `MatchingFixturesTest` regenerates this table in `target/matching-accuracy.md`. Five "weak at most" pairs are excluded from the counts.
 
 | Threshold | Precision | Recall | TP | FP | FN |
 |---|---|---|---|---|---|
@@ -144,18 +237,58 @@ All lists, weights and thresholds live in `application.yml`.
 | 0.90 | 1.000 | 0.875 | 35 | 0 | 5 |
 | 0.95 | 1.000 | 0.625 | 25 | 0 | 15 |
 
-The trade-off shows clearly. Lowering the threshold to 0.75 lets near-misses through (false positives, which mean analyst workload). Raising it to 0.90 misses real variants such as typos and romanisations (false negatives, which in sanctions screening are the costlier error). The fixture set is small and was written by hand, so these figures show the matcher behaves as designed. They are not a benchmark of real-world accuracy.
+Lowering the threshold to 0.75 lets near-misses through. Raising it to 0.90 misses real variants such as typos and romanisations. The set is small and was written by hand, so these figures show the matcher behaves as designed. They are not a benchmark of real-world accuracy.
 
-The set grew from real data. On the full dataset, "John Smith" first came out STRONG against "John B. Pridmore-Smith", which in a KYB check would automatically fail every John Smith. That pair and a similar one are now fixtures, and the extra-token penalty was raised to keep them below STRONG. Later, the first real check on Barclays Bank UK sent it to REVIEW. Its director Adam Banks had come out POSSIBLE (0.84) against a Taliban-listed person whose list entry includes the bare alias "Adam". One-word person aliases are now discarded, and that case is a fixture.
+The set grew from real data. On the full dataset, "John Smith" first came out STRONG against "John B. Pridmore-Smith", which in a KYB check would automatically fail every John Smith. That pair and a similar one are now fixtures, and the extra-token penalty was raised to keep them below STRONG. Later, the first real check on Barclays Bank UK sent it to REVIEW, because its director Adam Banks had come out POSSIBLE (0.84) against a Taliban-listed person whose entry includes the bare alias "Adam". One-word person aliases are now discarded, and that case is a fixture.
 
-### Performance
+## Performance
 
-Measured by `ScreeningPerformanceSmokeTest` against the full dataset (52,019 entities, 268,537 names; Postgres 16 in Docker on a desktop, warm cache): 90 single-name screens, **p50 23.9 ms, p95 45.5 ms**, max 305 ms. The target is under 100 ms.
+Measured against the full dataset (52,019 entities, about 268,500 names) with Postgres 16 in Docker on a desktop:
 
-To run the full real import as a manual check (downloads the whole file):
+| What | Result |
+|---|---|
+| Single-name screen (`ScreeningPerformanceSmokeTest`, 90 screens, warm cache; target under 100 ms) | p50 23.9 ms, p95 45.5 ms, max 305 ms |
+| Evaluating a check with no external calls (a replay, 6 to 16 subjects; target under 1 s) | 100 to 300 ms |
+| Full check with the source caches empty (real Companies House and FCA) | about 1.5 to 2 s |
+| Sanctions import, including download | about 30 to 70 s |
+| Keyless demo from a cold build | about 3 minutes |
+
+A replay measures the target well, because it does everything a check does except the external calls. These are single runs on one machine, not a load test. To repeat the import and screening measurements (these download the whole file):
 
 ```sh
 OPENSANCTIONS_SMOKE=true ./mvnw -Psmoke test -Dtest=SanctionsImportSmokeTest
+OPENSANCTIONS_SMOKE=true ./mvnw -Psmoke test -Dtest=ScreeningPerformanceSmokeTest
 ```
 
-> **Disclaimer:** a portfolio project, not a compliance product. Do not use it for real onboarding decisions. Sanctions data from [OpenSanctions](https://www.opensanctions.org) is licensed CC BY-NC 4.0, **non-commercial use only**.
+## Tests
+
+```sh
+./mvnw verify    # needs JDK 21 and a running Docker daemon for Testcontainers
+```
+
+No test calls a real external API; WireMock stands in for them. Each milestone is a pull request with two commits: the failing tests, then the implementation that makes them pass. CI runs the format check, all tests, a coverage gate of 80% on `matching` and `scoring`, the image build and the keyless demo. Real-API smoke tests are separate:
+
+```sh
+COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
+```
+
+## Known limitations
+
+- **UK only**, and no adverse-media screening or individual identity verification.
+- **FCA matching is inherently ambiguous** where a firm has no Companies House number on the Register, since it then rests on name and postcode. The result reports its basis and confidence.
+- **Only the first page of FCA search results** (20 firms) is considered.
+- **Authorisation is checked, permissions are not.** A firm being authorised is the signal; whether it is authorised for the company's actual activity is not compared.
+- **A holding company can be flagged as unauthorised.** Lloyds Banking Group picks up 25 points because SIC 64205 counts as regulated, though its subsidiaries are the firms on the Register.
+- **Clone detection depends on the Register's naming conventions.**
+- **The accuracy figures come from a small hand-written fixture set**, so they are not a real-world benchmark.
+- **Replay trusts the stored data**, since nothing signs it, and runs today's code.
+- **A check that fails part-way** (say, an unknown company) leaves only a log line, not an audit record.
+- **One shared API key**, with no users or tenants, and synchronous checks only.
+
+## Data sources and licences
+
+- **[OpenSanctions](https://www.opensanctions.org)**: sanctions data, licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Attribution is required and **commercial use is not permitted** without a separate licence. API responses carry this attribution in their `sources` field. This is what makes the whole project non-commercial.
+- **Companies House**: its public data is [available free of charge, including through the API](https://www.gov.uk/guidance/search-the-companies-house-register). The developer pages carry a Crown copyright notice and name no licence, and no statement was found placing the API data under the Open Government Licence, so this project does not claim that it is. A Companies House [forum reply](https://forum.companieshouse.gov.uk/t/is-data-provided-under-the-ocs/4513) says it sets no rules on how the register's information is used, and that users remain responsible for data protection and copyright law. Officers' names and partial birth dates are personal data, even though they are public.
+- **FCA Financial Services Register**: the [API is currently free, with no SLA or uptime guarantee](https://www.fca.org.uk/firms/financial-services-register). Its own terms are behind the developer portal sign-in. The FCA's [website legal terms](https://www.fca.org.uk/legal) restrict reproducing and re-using its content without permission, and its [register extract handbook](https://www.fca.org.uk/publication/documents/register-extract-handbook.pdf) says the API was not designed for bulk querying. This project makes a handful of lookups per check and republishes nothing. Anyone building on it should read the portal terms first.
+
+These notes were checked on 2026-11-08. They are one developer's reading, not legal advice.

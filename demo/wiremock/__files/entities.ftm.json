@@ -1,0 +1,4 @@
+{"id":"DEMO-ivan","caption":"Ivan Petrov","schema":"Person","datasets":["gb_fcdo_sanctions","eu_fsf"],"properties":{"name":["Ivan Petrov"],"alias":["Иван Петров"],"birthDate":["1971-03-14"],"nationality":["ru"],"topics":["sanction"],"programId":["DEMO-PROGRAMME"]},"target":true}
+{"id":"DEMO-olga","caption":"Olga Petrova","schema":"Person","datasets":["eu_fsf"],"properties":{"name":["Olga Petrova"],"topics":["sanction"]},"target":true}
+{"id":"DEMO-romashka","caption":"OOO Romashka Demo","schema":"Company","datasets":["eu_fsf"],"properties":{"name":["OOO Romashka Demo"],"jurisdiction":["ru"],"topics":["sanction"]},"target":true}
+{"id":"DEMO-zarya","caption":"Zarya Demo Holdings","schema":"Organization","datasets":["us_ofac_sdn"],"properties":{"name":["Zarya Demo Holdings"],"topics":["sanction"]},"target":true}

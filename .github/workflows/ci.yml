@@ -33,3 +33,11 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t kyb-service:ci .
+
+      # The newcomer's first command, for real: the Compose stack, the stubs and the walkthrough.
+      - name: Run the keyless demo
+        run: scripts/demo.sh
+
+      - name: Show the demo's logs if it failed
+        if: failure()
+        run: docker compose -f docker-compose.demo.yml logs
