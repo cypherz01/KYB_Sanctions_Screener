@@ -170,6 +170,14 @@ public class FcaRegisterClient {
                 null);
     }
 
+    /**
+     * Repeats {@link #assess} using only the responses a past assessment stored: no call, no cache.
+     * The same inputs give an equal assessment, including whatever was unavailable at the time.
+     */
+    public FcaAssessment reassess(String companyName, String companyNumber, String postcode, FcaSnapshot snapshot) {
+        throw new UnsupportedOperationException("not implemented yet");
+    }
+
     private FcaFirmMatch matchAuthorised(
             List<Scored> authorised,
             String companyNumber,
