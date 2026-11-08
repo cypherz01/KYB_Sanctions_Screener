@@ -108,8 +108,8 @@ kyb:
       base-delay: 500ms
       max-delay: 10s
   fca:
-    # FCA Financial Services Register API (free registration). Path and headers follow the
-    # third-party client docs; the official docs are JavaScript-only (verified by smoke test).
+    # FCA Financial Services Register API (free registration). Path and headers match the
+    # developer portal's introduction, which needs sign-in (also verified by smoke test).
     base-url: https://register.fca.org.uk/services/V0.1
     auth-email: ${FCA_AUTH_EMAIL:}
     auth-key: ${FCA_AUTH_KEY:}
@@ -118,7 +118,7 @@ kyb:
     connect-timeout: 5s
     read-timeout: 10s
     rate-limit:
-      # Documented limit: 50 requests per 10 seconds per user (429 then a 1-minute block).
+      # Documented limit: 50 requests per 10 seconds, subject to change (an error, then a 1-minute block).
       limit: 45
       period: 10s
       max-wait: 2s
