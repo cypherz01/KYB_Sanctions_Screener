@@ -1,8 +1,11 @@
 package com.cypherz01.kyb.api;
 
 import com.cypherz01.kyb.api.CheckDtos.CreateCheckRequest;
+import com.cypherz01.kyb.check.AuditTrail;
+import com.cypherz01.kyb.check.CheckAuditService;
 import com.cypherz01.kyb.check.CheckResponse;
 import com.cypherz01.kyb.check.CheckService;
+import com.cypherz01.kyb.check.ReplayResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import java.util.UUID;
@@ -21,9 +24,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class CheckController {
 
     private final CheckService checks;
+    private final CheckAuditService audit;
 
-    public CheckController(CheckService checks) {
+    public CheckController(CheckService checks, CheckAuditService audit) {
         this.checks = checks;
+        this.audit = audit;
     }
 
     @Operation(
@@ -45,5 +50,24 @@ public class CheckController {
     @GetMapping("/{checkId}")
     public JsonNode get(@PathVariable UUID checkId) {
         return checks.find(checkId);
+    }
+
+    @Operation(
+            summary = "The full audit trail of a check",
+            description = "What was asked, the raw data each source returned, the dataset, scoring and engine "
+                    + "versions used, and every event since, replays included.")
+    @GetMapping("/{checkId}/audit")
+    public AuditTrail audit(@PathVariable UUID checkId) {
+        return audit.trail(checkId);
+    }
+
+    @Operation(
+            summary = "Re-run a check from what it stored",
+            description = "Repeats normalisation, matching and scoring using the stored source data and the "
+                    + "sanctions dataset version the check used, with no external call, and compares the whole "
+                    + "result with the stored one. 409 if that dataset version has since been pruned.")
+    @PostMapping("/{checkId}/replay")
+    public ReplayResult replay(@PathVariable UUID checkId) {
+        return audit.replay(checkId);
     }
 }

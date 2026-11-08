@@ -1,6 +1,7 @@
 package com.cypherz01.kyb.api;
 
 import com.cypherz01.kyb.check.CheckNotFoundException;
+import com.cypherz01.kyb.check.CheckNotReplayableException;
 import com.cypherz01.kyb.companieshouse.CompaniesHouseUnavailableException;
 import com.cypherz01.kyb.companieshouse.CompanyNotFoundException;
 import com.cypherz01.kyb.companieshouse.InvalidCompanyNumberException;
@@ -60,6 +61,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(CheckNotFoundException.class)
     ProblemDetail checkNotFound(CheckNotFoundException e) {
         return problem(HttpStatus.NOT_FOUND, "Check not found", e.getMessage());
+    }
+
+    @ExceptionHandler(CheckNotReplayableException.class)
+    ProblemDetail checkNotReplayable(CheckNotReplayableException e) {
+        return problem(HttpStatus.CONFLICT, "Check cannot be replayed", e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

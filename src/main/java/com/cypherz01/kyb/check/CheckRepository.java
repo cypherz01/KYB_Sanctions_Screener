@@ -47,6 +47,34 @@ public class CheckRepository {
                 responseJson);
     }
 
+    public Optional<StoredCheck> find(UUID id) {
+        return jdbc
+                .query(
+                        """
+                        SELECT id, company_number, requested_at, completed_at, decision, score,
+                               sanctions_dataset_version_id, scoring_config_version, engine_version,
+                               request::text AS request, response::text AS response
+                          FROM kyb_check WHERE id = ?
+                        """,
+                        (rs, i) -> new StoredCheck(
+                                rs.getObject("id", UUID.class),
+                                rs.getString("company_number"),
+                                rs.getObject("requested_at", OffsetDateTime.class)
+                                        .toInstant(),
+                                rs.getObject("completed_at", OffsetDateTime.class)
+                                        .toInstant(),
+                                rs.getString("decision"),
+                                rs.getInt("score"),
+                                rs.getLong("sanctions_dataset_version_id"),
+                                rs.getString("scoring_config_version"),
+                                rs.getString("engine_version"),
+                                rs.getString("request"),
+                                rs.getString("response")),
+                        id)
+                .stream()
+                .findFirst();
+    }
+
     public Optional<String> findResponse(UUID id) {
         return jdbc.queryForList("SELECT response::text FROM kyb_check WHERE id = ?", String.class, id).stream()
                 .findFirst();

@@ -14,7 +14,9 @@ import java.util.List;
  * @param fetchedAt when the oldest Register response used was fetched; null if UNAVAILABLE
  * @param fromCache every response used came from cache
  * @param stale at least one expired cached response was used because the Register was down
- * @param payload the raw Register responses used ({@code search}, {@code firms.<FRN>}) for audit
+ * @param payload the raw Register responses used, for audit and replay: {@code search} and {@code
+ *     firms.<FRN>}, plus why any were missing: {@code firmsUnavailable.<FRN>} or {@code
+ *     unavailableReason}
  * @param unavailableReason why nothing could be established, or null
  */
 public record FcaAssessment(

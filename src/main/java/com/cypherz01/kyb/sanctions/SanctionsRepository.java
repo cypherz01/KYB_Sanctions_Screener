@@ -252,6 +252,14 @@ public class SanctionsRepository {
                 .findFirst();
     }
 
+    /** Any version, active or not; a PRUNED one has lost its rows but keeps this record. */
+    public Optional<DatasetVersion> findById(long id) {
+        return jdbc
+                .query("SELECT " + VERSION_COLUMNS + " FROM sanctions_dataset_version WHERE id = ?", VERSION, id)
+                .stream()
+                .findFirst();
+    }
+
     public Optional<DatasetVersion> findLatest() {
         return jdbc
                 .query(
