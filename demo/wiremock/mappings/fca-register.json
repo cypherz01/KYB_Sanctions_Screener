@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "priority": 1,
+      "request": {"method": "GET", "urlPath": "/Search", "queryParameters": {"q": {"equalTo": "ACME PAYMENTS LTD"}}},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "Status": "FSR-API-04-01-00",
+        "ResultInfo": {"page": "1", "per_page": "20", "total_count": "1"},
+        "Message": "Ok. Search successful",
+        "Data": [{"Status": "Unauthorised", "Reference Number": "999001", "Type of business or Individual": "Firm",
+                  "Name": "Acme Payments Ltd (Clone of FCA authorised firm)"}]
+      }}
+    },
+    {
+      "priority": 5,
+      "request": {"method": "GET", "urlPath": "/Search"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "Status": "FSR-API-04-01-11", "ResultInfo": null, "Message": "No search result found", "Data": []
+      }}
+    }
+  ]
+}

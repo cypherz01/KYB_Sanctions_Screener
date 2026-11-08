@@ -1,0 +1,88 @@
+{
+  "mappings": [
+    {
+      "request": {"method": "GET", "urlPathPattern": "/company/[^/]+/exemptions"},
+      "response": {"status": 404}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/07654321"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "company_number": "07654321", "company_name": "BRIGHT BAKERY LTD", "company_status": "active", "type": "ltd",
+        "date_of_creation": "2010-05-01",
+        "registered_office_address": {"address_line_1": "1 High Street", "locality": "Leeds", "postal_code": "LS1 1AA", "country": "England"},
+        "sic_codes": ["10710"], "accounts": {"overdue": false}, "confirmation_statement": {"overdue": false}, "has_insolvency_history": false
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/07654321/officers"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "kind": "officer-list", "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "JONES, Sarah", "officer_role": "director", "appointed_on": "2010-05-01", "nationality": "British",
+                   "country_of_residence": "United Kingdom", "date_of_birth": {"month": 5, "year": 1980}}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/07654321/persons-with-significant-control"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "Mrs Sarah Jones", "kind": "individual-person-with-significant-control", "nationality": "British",
+                   "country_of_residence": "United Kingdom", "date_of_birth": {"month": 5, "year": 1980}, "notified_on": "2016-06-30",
+                   "natures_of_control": ["ownership-of-shares-75-to-100-percent"]}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/12345678"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "company_number": "12345678", "company_name": "ACME PAYMENTS LTD", "company_status": "active", "type": "ltd",
+        "date_of_creation": "2019-02-11",
+        "registered_office_address": {"address_line_1": "9 Market Lane", "locality": "Bristol", "postal_code": "BS1 4QA", "country": "England"},
+        "sic_codes": ["62020"], "accounts": {"overdue": false}, "confirmation_statement": {"overdue": false}, "has_insolvency_history": false
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/12345678/officers"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "kind": "officer-list", "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "BROWN, Alex", "officer_role": "director", "appointed_on": "2019-02-11", "nationality": "British",
+                   "country_of_residence": "United Kingdom", "date_of_birth": {"month": 8, "year": 1985}}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/12345678/persons-with-significant-control"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "Mx Alex Brown", "kind": "individual-person-with-significant-control", "nationality": "British",
+                   "country_of_residence": "United Kingdom", "date_of_birth": {"month": 8, "year": 1985}, "notified_on": "2019-02-11",
+                   "natures_of_control": ["ownership-of-shares-75-to-100-percent"]}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/01234567"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "company_number": "01234567", "company_name": "ACME WIDGETS LTD", "company_status": "active", "type": "ltd",
+        "date_of_creation": "2015-03-01",
+        "registered_office_address": {"address_line_1": "2 Dock Road", "locality": "London", "postal_code": "E1 6AN", "country": "England"},
+        "sic_codes": ["46900"], "accounts": {"overdue": false}, "confirmation_statement": {"overdue": false}, "has_insolvency_history": false
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/01234567/officers"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "kind": "officer-list", "items_per_page": 100, "start_index": 0, "total_results": 2,
+        "items": [{"name": "PETROV, Ivan", "officer_role": "director", "appointed_on": "2015-03-01", "nationality": "Russian",
+                   "country_of_residence": "Cyprus", "date_of_birth": {"month": 3, "year": 1971}},
+                  {"name": "JONES, Sarah", "officer_role": "secretary", "appointed_on": "2015-03-01", "nationality": "British",
+                   "country_of_residence": "United Kingdom", "date_of_birth": {"month": 5, "year": 1980}}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/01234567/persons-with-significant-control"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "Mr Ivan Petrov", "kind": "individual-person-with-significant-control", "nationality": "Russian",
+                   "country_of_residence": "Cyprus", "date_of_birth": {"month": 3, "year": 1971}, "notified_on": "2016-06-30",
+                   "natures_of_control": ["ownership-of-shares-75-to-100-percent"]}]
+      }}
+    }
+  ]
+}

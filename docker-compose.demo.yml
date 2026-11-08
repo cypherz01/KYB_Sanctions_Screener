@@ -1,0 +1,49 @@
+# The keyless demo (see scripts/demo.sh): synthetic companies, a synthetic sanctions list and stubbed
+# upstreams. No keys, and nothing is called or downloaded from the real sources beyond the images.
+# Its own project with a throwaway database, so it can run beside a real stack and leaves nothing behind.
+name: kyb-demo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kyb
+      POSTGRES_USER: kyb
+      POSTGRES_PASSWORD: kyb
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyb -d kyb"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Stands in for Companies House, the FCA Register and OpenSanctions.
+  stubs:
+    image: wiremock/wiremock:3.13.1
+    command: ["--global-response-templating"]
+    volumes:
+      - ./demo/wiremock:/home/wiremock:ro
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      stubs:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/kyb?reWriteBatchedInserts=true
+      DB_USER: kyb
+      DB_PASSWORD: kyb
+      KYB_API_KEY: demo-key
+      COMPANIES_HOUSE_API_KEY: demo
+      FCA_AUTH_EMAIL: demo@example.com
+      FCA_AUTH_KEY: demo
+      KYB_COMPANIESHOUSE_BASEURL: http://stubs:8080
+      KYB_FCA_BASEURL: http://stubs:8080
+      KYB_SANCTIONS_INDEXURL: http://stubs:8080/datasets/latest/sanctions/index.json
+      KYB_SANCTIONS_IMPORT_ON_STARTUP: "true"
+      KYB_SANCTIONS_IMPORT_CRON: "-"
+    ports:
+      - "127.0.0.1:${KYB_DEMO_PORT:-8090}:8080"
