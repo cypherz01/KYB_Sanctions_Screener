@@ -67,6 +67,14 @@ class ReadmeTest {
     }
 
     @Test
+    void linksToTheDecisionRecordsForMonitoring() {
+        assertThat(readme)
+                .contains("docs/adr/0004-monitoring-triggers-and-opt-in.md")
+                .contains("docs/adr/0005-reverse-delta-screening.md")
+                .contains("docs/adr/0006-webhook-outbox.md");
+    }
+
+    @Test
     void hasAnArchitectureDiagramAndWalkthrough() {
         String architecture = section("## Architecture");
 

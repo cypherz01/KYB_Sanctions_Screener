@@ -1,0 +1,12 @@
+{"id":"NK-ivan","caption":"Ivan Petrov","schema":"Person","datasets":["gb_fcdo_sanctions","eu_fsf"],"properties":{"name":["Ivan Petrov"],"alias":["Иван Петров"],"birthDate":["1971-03-14"],"nationality":["ru"],"topics":["sanction"],"programId":["GB-RUS"]},"target":true}
+{"id":"NK-rashid","caption":"Muhammad Al-Rashid","schema":"Person","datasets":["un_sc_sanctions"],"properties":{"name":["Muhammad Al-Rashid"],"birthDate":["1965"],"nationality":["sy"],"topics":["sanction"]},"target":true}
+{"id":"NK-smith","caption":"John Smith","schema":"Person","datasets":["us_ofac_sdn"],"properties":{"name":["John Smith"],"birthDate":["1980-05-01"],"topics":["sanction"]},"target":true}
+{"id":"NK-bout","caption":"Viktor Bout","schema":"Person","datasets":["us_ofac_sdn","un_sc_sanctions"],"properties":{"name":["Viktor Bout"],"alias":["Victor Bout","Viktor Butt"],"topics":["sanction","sanction.linked"]},"target":true}
+{"id":"NK-acme","caption":"Acme Trading Company","schema":"Company","datasets":["us_ofac_sdn"],"properties":{"name":["Acme Trading LLC"],"country":["ae"],"topics":["sanction"]},"target":true}
+{"id":"NK-romashka","caption":"OOO Romashka","schema":"Company","datasets":["eu_fsf"],"properties":{"name":["OOO Romashka"],"jurisdiction":["by"],"topics":["sanction"]},"target":true}
+{"id":"NK-petrova","caption":"Olga Petrova","schema":"Person","datasets":["eu_fsf"],"properties":{"name":["Olga Petrova"],"nationality":["ru"],"topics":["sanction"]},"target":true}
+{"id":"NK-ivanov","caption":"Petr Ivanov","schema":"Person","datasets":["eu_fsf"],"properties":{"name":["Petr Ivanov"],"alias":["Sarah Jones"],"topics":["sanction"]},"target":true}
+{"id":"NK-global","caption":"Global Trading LLC","schema":"Organization","datasets":["us_ofac_sdn"],"properties":{"name":["Global Trading LLC"],"topics":["sanction"]},"target":true}
+{"id":"NK-unlabelled","caption":"Zarya Holdings","schema":"Organization","datasets":["xx_unknown_list","eu_fsf"],"properties":{"name":["Zarya Holdings"],"topics":["sanction"]},"target":true}
+{"id":"NK-olsen","caption":"Karl Olsen","schema":"Person","datasets":["eu_fsf"],"properties":{"name":["Karl Olsen"],"birthDate":["1960-06-01"],"topics":["sanction"]},"target":true}
+{"id":"NK-oneword","caption":"Adam","schema":"Person","datasets":["un_sc_sanctions"],"properties":{"name":["Adam"],"topics":["sanction"]},"target":true}
