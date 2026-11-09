@@ -9,5 +9,9 @@ public enum SubjectRole {
     OFFICER,
     CORPORATE_OFFICER,
     PSC,
-    CORPORATE_PSC
+    CORPORATE_PSC,
+    /** A company above the first level that was followed: it is screened, its officers are not. */
+    INTERMEDIATE_COMPANY,
+    /** A PSC above the first level that was not itself followed. */
+    UPSTREAM_PSC
 }

@@ -101,6 +101,15 @@ class CompaniesHouseMapperTest {
         assertThat(superSecure.name()).isNull();
     }
 
+    /** Look-through starts here: v1 parsed the number and then dropped it. */
+    @Test
+    void keepsACorporatePscsRegistrationNumberAsPublished() throws Exception {
+        List<Psc> pscs = mapper.toPscs(merged("pscs-page1.json", "pscs-page2.json"));
+
+        assertThat(pscs.get(1).registrationNumber()).isEqualTo("155555555");
+        assertThat(pscs.get(0).registrationNumber()).isNull();
+    }
+
     @Test
     void emptyListsMapToEmpty() throws Exception {
         JsonNode empty = json.readTree("{\"items\": []}");

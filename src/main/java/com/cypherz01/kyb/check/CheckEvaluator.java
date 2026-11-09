@@ -84,7 +84,7 @@ public class CheckEvaluator {
             List<String> roles = s.roles().stream().map(Enum::name).toList();
             String birthMonth = s.birthDate() == null ? null : s.birthDate().toString();
             ScreeningMatch best = r.matches().isEmpty() ? null : r.matches().get(0);
-            screenings.add(new SubjectScreening(roles, s.publishedName(), birthMonth, best));
+            screenings.add(new SubjectScreening(roles, s.publishedName(), birthMonth, best, null));
             screened.add(new ScreenedSubject(roles, s.publishedName(), s.type().name(), birthMonth, r.matches()));
         }
 
@@ -98,7 +98,8 @@ public class CheckEvaluator {
                 regulatory,
                 screenings,
                 dataset.versionLabel(),
-                LocalDate.ofInstant(requestedAt, ZoneOffset.UTC)));
+                LocalDate.ofInstant(requestedAt, ZoneOffset.UTC),
+                List.of()));
         notes.addAll(score.notes());
 
         return new CheckResponse(
@@ -111,6 +112,7 @@ public class CheckEvaluator {
                 score.factors(),
                 List.copyOf(notes),
                 List.copyOf(screened),
+                null,
                 new Regulatory(
                         regulatory.availability(),
                         regulatory.authorisedMatch(),

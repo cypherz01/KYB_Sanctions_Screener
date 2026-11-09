@@ -9,6 +9,8 @@ import java.util.List;
  *
  * @param registrationCountry for corporate/legal-person PSCs, where the entity is registered (feeds
  *     the CORPORATE_PSC_OFFSHORE rule); null for individuals
+ * @param registrationNumber for corporate/legal-person PSCs, the number as published, which is free
+ *     text and not necessarily a Companies House number; null for individuals
  */
 public record Psc(
         String name,
@@ -19,6 +21,7 @@ public record Psc(
         LocalDate notifiedOn,
         LocalDate ceasedOn,
         String registrationCountry,
+        String registrationNumber,
         List<String> naturesOfControl) {
 
     public Psc {

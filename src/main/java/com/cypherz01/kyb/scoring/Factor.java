@@ -1,5 +1,6 @@
 package com.cypherz01.kyb.scoring;
 
+import com.cypherz01.kyb.ownership.EffectiveInterest;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 import java.util.List;
@@ -11,10 +12,18 @@ import java.util.List;
  * @param subject who the factor is about (sanctions factors), or null
  * @param match the sanctions match behind the factor, or null
  * @param source where the underlying data came from, and how fresh it was, or null
+ * @param ownership what an upstream subject effectively holds in the company, or null for anyone else
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record Factor(
-        FactorCode code, int points, boolean autoFail, String detail, Subject subject, Match match, Source source) {
+        FactorCode code,
+        int points,
+        boolean autoFail,
+        String detail,
+        Subject subject,
+        Match match,
+        Source source,
+        EffectiveInterest ownership) {
 
     /**
      * @param roles e.g. {@code DIRECTOR}, {@code PSC} (one person can hold several)

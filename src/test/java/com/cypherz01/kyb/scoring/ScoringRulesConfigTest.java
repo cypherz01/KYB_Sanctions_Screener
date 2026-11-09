@@ -20,6 +20,14 @@ class ScoringRulesConfigTest {
         assertThat(props.points()).containsOnlyKeys(FactorCode.values());
     }
 
+    /** Below the review threshold of 40, so a foreign parent alone does not need a person. */
+    @Test
+    void ownershipGapsScoreBelowReviewAndALoopScoresMoreThanAGap() {
+        assertThat(props.points().get(FactorCode.OPAQUE_OWNERSHIP)).isEqualTo(15);
+        assertThat(props.points().get(FactorCode.OWNERSHIP_LIMIT_REACHED)).isEqualTo(15);
+        assertThat(props.points().get(FactorCode.CIRCULAR_OWNERSHIP)).isEqualTo(25);
+    }
+
     @Test
     void usesTheSpecDefaults() {
         assertThat(props.thresholds().review()).isEqualTo(40);

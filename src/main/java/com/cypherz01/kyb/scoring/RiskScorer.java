@@ -231,7 +231,8 @@ public class RiskScorer {
                     "Regulatory status could not be verified (" + fca.unavailableReason() + ")",
                     null,
                     null,
-                    new Factor.Source(FCA, null, null, null)));
+                    new Factor.Source(FCA, null, null, null),
+                    null));
         } else if (fca.availability() == FcaAvailability.STALE) {
             notes.add("The FCA Register was unavailable; a stale cached result fetched at " + fca.fetchedAt()
                     + " was used");
@@ -271,7 +272,8 @@ public class RiskScorer {
                             m.similarity(),
                             m.band().name(),
                             m.evidence()),
-                    new Factor.Source(OPENSANCTIONS, null, null, in.datasetVersion())));
+                    new Factor.Source(OPENSANCTIONS, null, null, in.datasetVersion()),
+                    null));
         }
     }
 
@@ -296,7 +298,8 @@ public class RiskScorer {
                 detail,
                 null,
                 null,
-                new Factor.Source(CH, s == null ? null : s.fetchedAt(), s == null ? null : s.stale(), null));
+                new Factor.Source(CH, s == null ? null : s.fetchedAt(), s == null ? null : s.stale(), null),
+                null);
     }
 
     private Factor fcaFactor(ScoringInputs in, FactorCode code, String detail) {
@@ -308,7 +311,8 @@ public class RiskScorer {
                 detail,
                 null,
                 null,
-                new Factor.Source(FCA, fca.fetchedAt(), fca.stale(), null));
+                new Factor.Source(FCA, fca.fetchedAt(), fca.stale(), null),
+                null);
     }
 
     private int points(FactorCode code) {
