@@ -52,6 +52,7 @@ public class CheckService {
     private final CheckEvaluator evaluator;
     private final EvidenceSnapshots snapshots;
     private final OwnershipWalker walker;
+    private final CheckCompletedListener listener;
     private final CheckRepository checks;
     private final AuditRepository audit;
     private final TransactionTemplate tx;
@@ -66,6 +67,7 @@ public class CheckService {
             CheckEvaluator evaluator,
             EvidenceSnapshots snapshots,
             OwnershipWalker walker,
+            CheckCompletedListener listener,
             CheckRepository checks,
             AuditRepository audit,
             TransactionTemplate tx,
@@ -78,6 +80,7 @@ public class CheckService {
         this.evaluator = evaluator;
         this.snapshots = snapshots;
         this.walker = walker;
+        this.listener = listener;
         this.checks = checks;
         this.audit = audit;
         this.tx = tx;
@@ -93,6 +96,11 @@ public class CheckService {
      * @throws com.cypherz01.kyb.matching.SanctionsDataUnavailableException 503 (no dataset)
      */
     public CheckResponse run(String companyNumber) {
+        return run(companyNumber, CheckOrigin.MANUAL);
+    }
+
+    /** As {@link #run(String)}, recording why the check ran. */
+    public CheckResponse run(String companyNumber, CheckOrigin origin) {
         long start = System.nanoTime();
         Instant requestedAt = clock.instant();
         String number = CompanyNumber.parse(companyNumber).value();
@@ -115,6 +123,7 @@ public class CheckService {
 
         UUID id = UUID.randomUUID();
         CheckResponse response = evaluator.evaluate(id, number, requestedAt, clock::instant, evidence, dataset);
+        List<Subject> subjects = evaluator.subjects(number, evidence);
 
         tx.executeWithoutResult(status -> {
             checks.insert(
@@ -127,12 +136,13 @@ public class CheckService {
                     dataset.id(),
                     response.scoringConfigVersion(),
                     response.engineVersion(),
-                    write(Map.of("companyNumber", number)),
+                    write(request(number, origin)),
                     write(response));
             audit.insertSnapshots(id, snapshots.toSnapshots(evidence));
             audit.append(id, requested(requestedAt, number));
             audit.append(id, gathered(gatheredAt, regulatory, dataset));
             audit.append(id, completed(response));
+            listener.onCheckCompleted(response, subjects, origin);
         });
 
         long nanos = System.nanoTime() - start;
@@ -203,6 +213,19 @@ public class CheckService {
         } catch (CompaniesHouseUnavailableException e) {
             return ParentRecord.unavailable(e.getMessage());
         }
+    }
+
+    private static Map<String, Object> request(String number, CheckOrigin origin) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("companyNumber", number);
+        request.put("trigger", origin.trigger());
+        if (origin.subscriptionId() != null) {
+            request.put("subscriptionId", origin.subscriptionId());
+        }
+        if (origin.previousCheckId() != null) {
+            request.put("previousCheckId", origin.previousCheckId());
+        }
+        return request;
     }
 
     private AuditEvent requested(Instant at, String number) {

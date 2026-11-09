@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,6 +76,13 @@ public class CheckAuditService {
                 check.engineVersion(),
                 audit.findSnapshots(checkId),
                 audit.findEvents(checkId));
+    }
+
+    /** @return who a stored check screened, or empty if it has no complete set of snapshots */
+    public Optional<List<Subject>> subjectsOf(UUID checkId, String companyNumber) {
+        return snapshots
+                .restore(companyNumber, audit.findSnapshots(checkId))
+                .map(evidence -> evaluator.subjects(companyNumber, evidence));
     }
 
     /**

@@ -24,6 +24,9 @@ services:
     command: ["--global-response-templating"]
     volumes:
       - ./demo/wiremock:/home/wiremock:ro
+    # So the walkthrough can move the invented list on, and see the webhook arrive.
+    ports:
+      - "127.0.0.1:${KYB_DEMO_STUBS_PORT:-8091}:8080"
 
   app:
     build: .
@@ -45,5 +48,8 @@ services:
       KYB_SANCTIONS_INDEXURL: http://stubs:8080/datasets/latest/sanctions/index.json
       KYB_SANCTIONS_IMPORT_ON_STARTUP: "true"
       KYB_SANCTIONS_IMPORT_CRON: "-"
+      KYB_MONITORING_CRON: "*/1 * * * * *"
+      KYB_WEBHOOK_URL: http://stubs:8080/webhook
+      KYB_WEBHOOK_SECRET: demo-webhook-secret
     ports:
       - "127.0.0.1:${KYB_DEMO_PORT:-8090}:8080"

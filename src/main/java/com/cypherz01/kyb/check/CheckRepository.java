@@ -75,6 +75,17 @@ public class CheckRepository {
                 .findFirst();
     }
 
+    /** @return the company's most recent check */
+    public Optional<UUID> findLatestId(String companyNumber) {
+        return jdbc
+                .queryForList(
+                        "SELECT id FROM kyb_check WHERE company_number = ? ORDER BY requested_at DESC LIMIT 1",
+                        UUID.class,
+                        companyNumber)
+                .stream()
+                .findFirst();
+    }
+
     public Optional<String> findResponse(UUID id) {
         return jdbc.queryForList("SELECT response::text FROM kyb_check WHERE id = ?", String.class, id).stream()
                 .findFirst();

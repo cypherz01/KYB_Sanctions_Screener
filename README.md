@@ -99,6 +99,11 @@ replay of the failed check: identical: true
 
 == And everything that happened to it is on record
 events: CHECK_REQUESTED SOURCES_GATHERED CHECK_COMPLETED CHECK_REPLAYED
+
+== A company can be watched: a second version of the list names its director
+watching: BRIGHT BAKERY LTD (07654321), which passed above
+alert: MATCHES_CHANGED, PASS to FAIL
+webhook received: 1, signed
 ```
 
 Explore further at <http://localhost:8090/swagger-ui.html> with the key `demo-key`. Stop it with `docker compose -f docker-compose.demo.yml down`.
@@ -140,6 +145,9 @@ Every `/api/**` call needs the `X-Api-Key` header. If `KYB_API_KEY` is not set, 
 | `GET /api/v1/checks/{id}` | The stored result, byte for byte as first returned. |
 | `GET /api/v1/checks/{id}/audit` | The raw source data, versions and events behind a check. |
 | `POST /api/v1/checks/{id}/replay` | Re-run a check from what it stored. |
+| `POST /api/v1/monitoring/subscriptions` | Start watching a company: `{"companyNumber": "..."}`. `201`, or `200` if already watched. |
+| `DELETE /api/v1/monitoring/subscriptions/{companyNumber}` | Stop watching it, and delete its index of watched names. Alerts and checks stay. |
+| `GET /api/v1/monitoring/alerts` | Alerts, newest first. `?companyNumber=` narrows the list. |
 | `POST /api/v1/screen/name` | Screen one name: `{"name": "...", "type": "PERSON", "birthDate": "1971-03", "country": "RU"}`. |
 | `POST /api/v1/admin/sanctions/import` | Start a sanctions import (`202`, runs in the background). |
 | `GET /api/v1/admin/sanctions/status` | The active dataset version, last import and counts. |
@@ -185,6 +193,16 @@ The decision follows OFAC's 50% rule and the UK's "owned or controlled" test. A 
 
 A check made before this existed replays without look-through, with a note saying so, and the difference is reported rather than the replay refused. The planning and the reasoning are in the decision records: [review of v1 and plan](docs/adr/0001-review-of-v1-and-plan.md), [look-through scope](docs/adr/0002-look-through-scope.md), and [effective ownership and control](docs/adr/0003-effective-ownership-and-control.md).
 
+## Ongoing monitoring
+
+A check is correct as of the moment it ran. If a director is listed the next day, the stored result still says `PASS`. So a company can be watched, after an explicit opt-in, because watching keeps people's names for as long as it runs.
+
+Each sanctions import is compared with the last by entity, and only what changed is matched against the watched names, so the work follows the size of the change rather than the number of subscriptions. A test in CI holds this to finding exactly what re-screening everyone would find. A hit runs an ordinary check with the usual audit trail and replay, and an alert is recorded only if the decision or the set of matches changed. A full re-check every 30 days catches what the sanctions list cannot show, such as a new director.
+
+Alerts are immutable events with no status, and can be listed through the API. If `KYB_WEBHOOK_URL` and `KYB_WEBHOOK_SECRET` are set, each is also delivered as a signed webhook, at least once, through a Postgres outbox. The workers use `FOR UPDATE SKIP LOCKED`, so they are safe across replicas. This covers the monitoring workers only: sanctions import recovery on startup still assumes one instance.
+
+The reasoning is in the decision records: [triggers and opt-in](docs/adr/0004-monitoring-triggers-and-opt-in.md), [reverse delta screening](docs/adr/0005-reverse-delta-screening.md), and [the webhook outbox](docs/adr/0006-webhook-outbox.md).
+
 ## Audit and replay
 
 Every check stores what it rested on, in one transaction with the result: the raw response from each source (with its fetch time and whether it was cached or stale), the sanctions dataset version, the scoring and engine versions, and a log of events.
@@ -199,7 +217,8 @@ A replay repeats normalisation, matching and scoring from those snapshots, again
 - **What "identical" means.** The whole result is compared field by field, not just the decision and score, and any difference is reported by path. An unchanged total could otherwise hide a changed factor.
 - **Replay runs today's code and rules.** Old code is not kept, so a replay after an engine or scoring change shows the new version as a difference, along with anything that changes as a result. That is what such a replay is for: it shows what the change does to a past decision. To reproduce the original under its own rules, run the release matching its recorded `engineVersion`. Bump `kyb.checks.engine-version` whenever matching or scoring code changes, or a difference will have no version to explain it.
 - **Retention.** The newest 3 sanctions dataset versions are kept. A check whose version has been pruned cannot be replayed, and asking returns `409` rather than screening against missing rows, which would look clean. Its stored result, snapshots and audit trail are kept indefinitely, and the refusal is recorded. Raise `kyb.sanctions.keep-versions` to replay further back, at about 200 MB of database per version (measured on the full dataset). Snapshots and events are never deleted, so storage grows with the number of checks, at about 33 kB of snapshots per check in the run below.
-- **Append-only, enforced.** Database triggers reject `UPDATE` and `DELETE` on checks, snapshots and events. This stops mistakes, not a database administrator: `TRUNCATE` stays possible so an environment can be reset.
+- **Stopping monitoring.** Unsubscribing deletes the index of watched names for that company. Its alerts and checks stay, as they are the audit record, and they contain the names of anyone they concern.
+- **Append-only, enforced.** Database triggers reject `UPDATE` and `DELETE` on checks, snapshots, events and alerts. This stops mistakes, not a database administrator: `TRUNCATE` stays possible so an environment can be reset.
 
 Checked on real data on 2026-11-08: Tesco, Barclays Bank UK, Lloyds Banking Group, HSBC Bank and Yorkshire Electricity Group, plus a repeat check served from the cache, against the full dataset. All six replayed identically, and again after restarting the application, which is when any dependence on hash ordering would show.
 
@@ -304,6 +323,8 @@ COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
 - **The accuracy figures come from a small hand-written fixture set**, so they are not a real-world benchmark.
 - **Replay trusts the stored data**, since nothing signs it, and runs today's code.
 - **A check that fails part-way** (say, an unknown company) leaves only a log line, not an audit record.
+- **A change at Companies House can take up to 30 days to raise an alert**, as the Streaming API is designed but not built. Reverse screening can also miss a change for a very common name beyond the 50-candidate cap, which the same re-check catches.
+- **No analyst workflow.** Alerts cannot be assigned or closed, which is the natural next step.
 - **One shared API key**, with no users or tenants, and synchronous checks only.
 
 ## Data sources and licences

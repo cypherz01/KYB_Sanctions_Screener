@@ -7,6 +7,7 @@ import com.cypherz01.kyb.companieshouse.CompanyNotFoundException;
 import com.cypherz01.kyb.companieshouse.InvalidCompanyNumberException;
 import com.cypherz01.kyb.matching.InvalidScreeningRequestException;
 import com.cypherz01.kyb.matching.SanctionsDataUnavailableException;
+import com.cypherz01.kyb.monitoring.SubscriptionNotFoundException;
 import com.cypherz01.kyb.sanctions.ImportAlreadyRunningException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +67,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(CheckNotReplayableException.class)
     ProblemDetail checkNotReplayable(CheckNotReplayableException e) {
         return problem(HttpStatus.CONFLICT, "Check cannot be replayed", e.getMessage());
+    }
+
+    @ExceptionHandler(SubscriptionNotFoundException.class)
+    ProblemDetail subscriptionNotFound(SubscriptionNotFoundException e) {
+        return problem(HttpStatus.NOT_FOUND, "Subscription not found", e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

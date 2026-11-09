@@ -47,6 +47,9 @@ class DemoScriptIntegrationTest {
         registry.add("kyb.fca.auth-email", () -> "demo@example.com");
         registry.add("kyb.fca.auth-key", () -> "demo");
         registry.add("kyb.sanctions.index-url", () -> stubs.baseUrl() + OpenSanctionsStubs.INDEX_PATH);
+        registry.add("kyb.monitoring.cron", () -> "*/1 * * * * *");
+        registry.add("kyb.monitoring.webhook.url", () -> stubs.baseUrl() + "/webhook");
+        registry.add("kyb.monitoring.webhook.secret", () -> "demo-webhook-secret");
     }
 
     /** One run per class: the tests are all questions about the same output. */
@@ -102,6 +105,15 @@ class DemoScriptIntegrationTest {
                 .contains("56.25");
     }
 
+    /** M9: a second version of the list raises an alert, which reaches a webhook receiver. */
+    @Test
+    void showsAnAlertArrivingWhenTheListChanges() {
+        assertThat(demo.output())
+                .contains("second version of the list")
+                .contains("alert: MATCHES_CHANGED, PASS to FAIL")
+                .contains("webhook received: 1, signed");
+    }
+
     /** The point of the service is that it explains itself, so the demo must show the reasoning. */
     @Test
     void showsWhyTheMatchWasMade() {
@@ -137,10 +149,19 @@ class DemoScriptIntegrationTest {
         assertThat(mappings).contains(OpenSanctionsStubs.sha1(seed));
     }
 
+    @Test
+    void theSecondDatasetMatchesTheChecksumItsIndexAdvertises() throws IOException {
+        byte[] second = Files.readAllBytes(Path.of("demo/wiremock/__files/entities-2.ftm.json"));
+        String mappings = Files.readString(Path.of("demo/wiremock/mappings/opensanctions.json"));
+
+        assertThat(mappings).contains(OpenSanctionsStubs.sha1(second));
+    }
+
     private Result run() throws Exception {
         ProcessBuilder builder = new ProcessBuilder(bash(), "scripts/demo.sh", "--no-start").redirectErrorStream(true);
         builder.environment().put("KYB_DEMO_URL", "http://localhost:" + port);
         builder.environment().put("KYB_DEMO_API_KEY", ApiKeyTestConfig.KEY);
+        builder.environment().put("KYB_DEMO_STUBS_URL", stubs.baseUrl());
         Process process = builder.start();
         process.getOutputStream().close();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
