@@ -4,6 +4,7 @@ import com.cypherz01.kyb.api.ApiKeyFilter;
 import com.cypherz01.kyb.api.ApiSecurityProperties;
 import com.cypherz01.kyb.audit.AuditRepository;
 import com.cypherz01.kyb.check.CheckAuditService;
+import com.cypherz01.kyb.check.CheckCompletedListener;
 import com.cypherz01.kyb.check.CheckEvaluator;
 import com.cypherz01.kyb.check.CheckRepository;
 import com.cypherz01.kyb.check.CheckService;
@@ -94,6 +95,7 @@ class CheckConfig {
             CheckEvaluator evaluator,
             EvidenceSnapshots snapshots,
             OwnershipWalker walker,
+            CheckCompletedListener listener,
             CheckRepository checks,
             AuditRepository audit,
             PlatformTransactionManager transactions,
@@ -107,6 +109,7 @@ class CheckConfig {
                 evaluator,
                 snapshots,
                 walker,
+                listener,
                 checks,
                 audit,
                 new TransactionTemplate(transactions),

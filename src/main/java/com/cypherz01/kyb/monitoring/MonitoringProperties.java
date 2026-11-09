@@ -30,9 +30,15 @@ public record MonitoringProperties(Duration recheckInterval, int jobsPerTick, Du
             Duration retryMaxDelay,
             Duration timeout) {
 
+        public Webhook {
+            if (url != null && !url.isBlank() && (secret == null || secret.isBlank())) {
+                throw new IllegalArgumentException("KYB_WEBHOOK_URL is set, so KYB_WEBHOOK_SECRET is required");
+            }
+        }
+
         /** @return whether alerts are delivered at all */
         public boolean configured() {
-            throw new UnsupportedOperationException("not implemented yet");
+            return url != null && !url.isBlank();
         }
     }
 }

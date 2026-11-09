@@ -31,6 +31,23 @@ kyb:
     # Callers send this as X-Api-Key on every /api/** request. Unset means every API call is
     # refused (fail closed), never left open by accident.
     api-key: ${KYB_API_KEY:}
+  # Ongoing monitoring: ADR-0004, ADR-0005, ADR-0006.
+  monitoring:
+    # How often the worker makes a pass. "-" disables it.
+    cron: ${KYB_MONITORING_CRON:*/15 * * * * *}
+    recheck-interval: ${KYB_MONITORING_RECHECK_INTERVAL:P30D}
+    # A check costs 4 Companies House requests, plus 3 per parent. At 40 checks per 5 minutes this stays
+    # inside the client's limit of 550 even with 3 parents each, and the client's own limiter holds beyond that.
+    jobs-per-tick: 2
+    job-retry-delay: PT1H
+    # A single endpoint set here. Per-subscription URLs are rejected: ADR-0006.
+    webhook:
+      url: ${KYB_WEBHOOK_URL:}
+      secret: ${KYB_WEBHOOK_SECRET:}
+      max-attempts: 10
+      retry-base-delay: PT30S
+      retry-max-delay: PT1H
+      timeout: PT5S
   checks:
     # Bump when matching or scoring CODE changes (config changes are versioned in scoring-rules.yml).
     # The normaliser version is appended automatically.

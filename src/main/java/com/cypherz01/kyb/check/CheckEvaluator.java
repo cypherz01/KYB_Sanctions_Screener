@@ -71,6 +71,15 @@ public class CheckEvaluator {
         this.props = props;
     }
 
+    /** Who a check on this evidence screens, which is who monitoring watches. */
+    public List<Subject> subjects(String companyNumber, CheckEvidence evidence) {
+        CompanyProfile company = evidence.profile().value();
+        OwnershipGraph ownership = ownership(companyNumber, evidence);
+        return extractor
+                .extract(company, evidence.officers().value(), evidence.pscs().value(), ownership.parties())
+                .subjects();
+    }
+
     /** @param completedAt read once the work is done: the current time live, the stored one in a replay */
     public CheckResponse evaluate(
             UUID id,
@@ -82,9 +91,7 @@ public class CheckEvaluator {
         CompanyProfile company = evidence.profile().value();
         FcaAssessment regulatory = evidence.regulatory();
 
-        OwnershipGraph ownership = evidence.parents() == null
-                ? NOT_LOOKED_THROUGH
-                : walker.walk(companyNumber, company.name(), evidence.pscs().value(), evidence.parents()::get);
+        OwnershipGraph ownership = ownership(companyNumber, evidence);
 
         SubjectExtraction extraction = extractor.extract(
                 company, evidence.officers().value(), evidence.pscs().value(), ownership.parties());
@@ -163,6 +170,17 @@ public class CheckEvaluator {
                 score.scoringConfigVersion(),
                 requestedAt,
                 completedAt.get());
+    }
+
+    private OwnershipGraph ownership(String companyNumber, CheckEvidence evidence) {
+        if (evidence.parents() == null) {
+            return NOT_LOOKED_THROUGH;
+        }
+        return walker.walk(
+                companyNumber,
+                evidence.profile().value().name(),
+                evidence.pscs().value(),
+                evidence.parents()::get);
     }
 
     /** A parent's data counts too: a check resting on a stale parent must say so. */

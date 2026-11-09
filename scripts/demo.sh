@@ -5,7 +5,8 @@
 #
 #   scripts/demo.sh              start the demo stack, then run the walkthrough
 #   scripts/demo.sh --no-start   run the walkthrough against a service already running, at
-#                                KYB_DEMO_URL with key KYB_DEMO_API_KEY
+#                                KYB_DEMO_URL with key KYB_DEMO_API_KEY, and its stubs at
+#                                KYB_DEMO_STUBS_URL
 #
 # Deliberately needs no jq: a newcomer should not have to install anything to see this work. The
 # values read here come first in, or are unique to, the service's compact JSON.
@@ -16,6 +17,8 @@ cd "$(dirname "$0")/.."
 COMPOSE_FILE=docker-compose.demo.yml
 URL="${KYB_DEMO_URL:-http://localhost:${KYB_DEMO_PORT:-8090}}"
 KEY="${KYB_DEMO_API_KEY:-demo-key}"
+# The stand-in for the real sources, which is also the webhook receiver.
+STUBS="${KYB_DEMO_STUBS_URL:-http://localhost:${KYB_DEMO_STUBS_PORT:-8091}}"
 
 api_get() {
     curl -sS --fail-with-body -H "X-Api-Key: $KEY" "$URL$1"
@@ -119,6 +122,44 @@ fi
 
 heading "And everything that happened to it is on record"
 printf 'events: %s\n' "$(api_get "/api/v1/checks/$SANCTIONED_ID/audit" | all_values eventType)"
+
+heading "A company can be watched: a second version of the list names its director"
+api_post /api/v1/monitoring/subscriptions '{"companyNumber":"07654321"}' > /dev/null
+echo "watching: BRIGHT BAKERY LTD (07654321), which passed above"
+curl -sS --fail-with-body -X PUT -H 'Content-Type: application/json' -d '{"state":"second"}' \
+    "$STUBS/__admin/scenarios/sanctions-list/state" > /dev/null
+api_post /api/v1/admin/sanctions/import '' > /dev/null
+ALERTS=""
+for _ in $(seq 1 60); do
+    ALERTS="$(api_get '/api/v1/monitoring/alerts?companyNumber=07654321')"
+    if printf '%s' "$ALERTS" | grep -q '"alertId"'; then
+        break
+    fi
+    sleep 1
+done
+if ! printf '%s' "$ALERTS" | grep -q '"alertId"'; then
+    echo "No alert was raised. Check: docker compose -f $COMPOSE_FILE logs app" >&2
+    exit 1
+fi
+printf 'alert: %s, %s to %s\n' \
+    "$(printf '%s' "$ALERTS" | text_field type)" \
+    "$(printf '%s' "$ALERTS" | text_field decisionBefore)" \
+    "$(printf '%s' "$ALERTS" | text_field decisionAfter)"
+for _ in $(seq 1 30); do
+    RECEIVED="$(printf '%s' '{"method":"POST","url":"/webhook"}' \
+        | curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' --data-binary @- \
+            "$STUBS/__admin/requests/find")"
+    SIGNED="$(printf '%s' "$RECEIVED" | grep -io 'x-kyb-signature' | wc -l | tr -d ' ')"
+    if [ "$SIGNED" != "0" ]; then
+        break
+    fi
+    sleep 1
+done
+if [ "$SIGNED" = "0" ]; then
+    echo "The webhook did not arrive. Check: docker compose -f $COMPOSE_FILE logs app" >&2
+    exit 1
+fi
+printf 'webhook received: %s, signed\n' "$SIGNED"
 
 echo
 echo "Explore the API at $URL/swagger-ui.html (authorise with the key: $KEY)"

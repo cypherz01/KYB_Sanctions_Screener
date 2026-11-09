@@ -1,6 +1,7 @@
 {
   "mappings": [
     {
+      "scenarioName": "sanctions-list", "requiredScenarioState": "Started",
       "request": {"method": "GET", "urlPath": "/datasets/latest/sanctions/index.json"},
       "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
         "name": "sanctions", "type": "collection", "version": "synthetic-demo-1",
@@ -10,9 +11,28 @@
       }}
     },
     {
+      "scenarioName": "sanctions-list", "requiredScenarioState": "second",
+      "request": {"method": "GET", "urlPath": "/datasets/latest/sanctions/index.json"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "name": "sanctions", "type": "collection", "version": "synthetic-demo-2",
+        "resources": [{"name": "entities.ftm.json", "checksum": "e8fa9e84d61ea0de52e89cb3129c8fef01231ac5",
+                       "mime_type": "application/json+ftm", "size": 1067, "path": "entities.ftm.json",
+                       "url": "{{request.baseUrl}}/datasets/latest/sanctions/entities-2.ftm.json"}]
+      }}
+    },
+    {
       "request": {"method": "GET", "urlPath": "/datasets/latest/sanctions/entities.ftm.json"},
       "response": {"status": 200, "headers": {"Content-Type": "application/json+ftm"},
                    "bodyFileName": "entities.ftm.json", "transformers": []}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/datasets/latest/sanctions/entities-2.ftm.json"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json+ftm"},
+                   "bodyFileName": "entities-2.ftm.json", "transformers": []}
+    },
+    {
+      "request": {"method": "POST", "urlPath": "/webhook"},
+      "response": {"status": 204}
     }
   ]
 }

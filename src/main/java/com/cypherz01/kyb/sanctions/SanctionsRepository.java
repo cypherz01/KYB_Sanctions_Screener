@@ -182,6 +182,11 @@ public class SanctionsRepository {
                 // e.g. recovered as interrupted meanwhile. Roll back so the old version stays active.
                 throw new IllegalStateException("Version " + versionId + " is no longer LOADING; not activated");
             }
+            // In this transaction, so a crash straight after activating cannot lose monitoring's trigger.
+            jdbc.update(
+                    "INSERT INTO monitoring_run (dataset_version_id, created_at) VALUES (?, ?)",
+                    versionId,
+                    utc(finishedAt));
         });
     }
 
