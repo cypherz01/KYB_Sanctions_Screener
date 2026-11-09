@@ -139,8 +139,14 @@ public class SubjectExtractor {
                 type,
                 birthDate,
                 countries(party.nationality()));
-        if (!alreadyDirect && subjects.containsKey(key)) {
-            subjects.get(key).keepStronger(party.interest());
+        Builder subject = subjects.get(key);
+        if (subject == null) {
+            return;
+        }
+        if (party.interest() == null) {
+            subject.upstream = null;
+        } else if (!alreadyDirect) {
+            subject.keepStronger(party.interest());
         }
     }
 

@@ -54,6 +54,15 @@ public record Holding(double lowerPercent, double upperPercent, Kind kind, boole
         return best != null ? best : new Holding(0, 100, Kind.INFLUENCE, influence);
     }
 
+    /** The natures this code cannot read, so each can be noted even if another was understood. */
+    public static List<String> unknownNatures(List<String> naturesOfControl) {
+        return naturesOfControl.stream()
+                .filter(nature -> !CONTROL.matcher(nature).matches()
+                        && !INFLUENCE.matcher(nature).matches()
+                        && !BAND.matcher(nature).matches())
+                .toList();
+    }
+
     private static Holding ofBand(String band) {
         return switch (band) {
             case "25-to-50" -> new Holding(25, 50, Kind.OWNERSHIP, true);

@@ -95,4 +95,15 @@ class HoldingTest {
     void noNaturesAtAllIsTreatedTheSameWay() {
         assertThat(Holding.fromNatures(List.of())).isEqualTo(new Holding(0, 100, Holding.Kind.INFLUENCE, false));
     }
+
+    @Test
+    void listsOnlyTheNaturesItDoesNotUnderstand() {
+        assertThat(Holding.unknownNatures(List.of(
+                        "voting-rights-50-to-75-percent",
+                        "something-new",
+                        "right-to-appoint-and-remove-directors",
+                        "significant-influence-or-control",
+                        "something-else")))
+                .containsExactly("something-new", "something-else");
+    }
 }

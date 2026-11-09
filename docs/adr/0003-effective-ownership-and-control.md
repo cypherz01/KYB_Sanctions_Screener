@@ -50,6 +50,7 @@ A STRONG match on the company itself, an officer or a direct PSC stays an automa
 
 ## Consequences
 
+- The 50% threshold lives in `scoring-rules.yml`, so a change to it is versioned on every check.
 - Every band is a multiple of a quarter, so the arithmetic is exact in binary floating point, and replay compares equal without rounding.
 - A `REVIEW` from this rule is worth 40 points rather than being a separate outcome, so it adds to other risks like any factor and can reach `FAIL` that way.
 - Bands are as declared to Companies House. This calculates what the register says, not what is true, and a false declaration is outside what this service can detect.
