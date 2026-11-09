@@ -14,9 +14,9 @@ import com.cypherz01.kyb.companieshouse.CompaniesHouseClient;
 import com.cypherz01.kyb.companieshouse.CompaniesHouseMapper;
 import com.cypherz01.kyb.fca.FcaRegisterClient;
 import com.cypherz01.kyb.matching.MatchingProperties;
+import com.cypherz01.kyb.matching.NameMatcher;
 import com.cypherz01.kyb.matching.NameNormaliser;
 import com.cypherz01.kyb.matching.ScreeningService;
-import com.cypherz01.kyb.ownership.OwnershipProperties;
 import com.cypherz01.kyb.ownership.OwnershipWalker;
 import com.cypherz01.kyb.sanctions.SanctionsAttribution;
 import com.cypherz01.kyb.sanctions.SanctionsRepository;
@@ -40,12 +40,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({
-    ChecksProperties.class,
-    ScoringProperties.class,
-    ApiSecurityProperties.class,
-    OwnershipProperties.class
-})
+@EnableConfigurationProperties({ChecksProperties.class, ScoringProperties.class, ApiSecurityProperties.class})
 class CheckConfig {
 
     @Bean
@@ -82,9 +77,8 @@ class CheckConfig {
     }
 
     @Bean
-    OwnershipWalker ownershipWalker(
-            OwnershipProperties properties, NameNormaliser normaliser, ScoringProperties scoring) {
-        return new OwnershipWalker(properties, normaliser, scoring.ukCountries());
+    OwnershipWalker ownershipWalker(NameNormaliser normaliser, NameMatcher matcher, ScoringProperties scoring) {
+        return new OwnershipWalker(scoring.ownership(), normaliser, matcher, scoring.ukCountries());
     }
 
     @Bean

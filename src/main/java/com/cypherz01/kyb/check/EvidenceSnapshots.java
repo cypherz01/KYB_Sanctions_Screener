@@ -106,17 +106,22 @@ public class EvidenceSnapshots {
         boolean fromCache = false;
         boolean stale = false;
         if (parent.status() == ParentRecord.Status.FOUND) {
-            payload.set(PROFILE, parent.profile().payload());
+            if (parent.profile() != null) {
+                payload.set(PROFILE, parent.profile().payload());
+            }
             payload.set(PSCS, parent.pscs().payload());
-            payload.set(EXEMPTIONS, parent.exemptions().payload());
-            List<Sourced<?>> calls = List.of(parent.profile(), parent.pscs(), parent.exemptions());
+            if (parent.exemptions() != null) {
+                payload.set(EXEMPTIONS, parent.exemptions().payload());
+            }
+            List<Sourced<?>> calls = parent.answeredCalls();
             fetchedAt = calls.stream()
                     .map(Sourced::fetchedAt)
                     .min(Comparator.naturalOrder())
                     .orElseThrow();
             fromCache = calls.stream().allMatch(Sourced::fromCache);
             stale = calls.stream().anyMatch(Sourced::stale);
-        } else if (parent.reason() != null) {
+        }
+        if (parent.reason() != null) {
             payload.put(REASON, parent.reason());
         }
         return new SourceSnapshot(
@@ -145,9 +150,10 @@ public class EvidenceSnapshots {
             case UNAVAILABLE -> ParentRecord.unavailable(payload.path(REASON).asText());
             case FOUND ->
                 ParentRecord.found(
-                        restored(s, payload.path(PROFILE), mapper::toProfile),
+                        payload.has(PROFILE) ? restored(s, payload.path(PROFILE), mapper::toProfile) : null,
                         restored(s, payload.path(PSCS), mapper::toPscs),
-                        restored(s, payload.path(EXEMPTIONS), mapper::toExemptions));
+                        payload.has(EXEMPTIONS) ? restored(s, payload.path(EXEMPTIONS), mapper::toExemptions) : null,
+                        payload.path(REASON).asText(null));
         };
     }
 

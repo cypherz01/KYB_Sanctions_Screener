@@ -308,8 +308,9 @@ public class RiskScorer {
     }
 
     /** OFAC's 50% rule and the UK's "owned or controlled" test, applied to what the bands can prove. */
-    private static boolean holdsHalfOrControl(EffectiveInterest interest) {
-        return interest.control() || interest.lowerPercent() >= 50;
+    private boolean holdsHalfOrControl(EffectiveInterest interest) {
+        return interest.control()
+                || interest.lowerPercent() >= props.ownership().failAtPercent();
     }
 
     private static String describe(EffectiveInterest interest) {

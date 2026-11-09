@@ -3,7 +3,7 @@
 # must use the same rules.
 kyb:
   scoring:
-    version: "2026-11-09"
+    version: "2026-11-09.2"
     thresholds:
       review: 40
       fail: 80
@@ -36,9 +36,16 @@ kyb:
     # Companies House company_status values meaning the company is not trading normally.
     inactive-statuses: [dissolved, liquidation, receivership, administration, voluntary-arrangement,
                         converted-closed, insolvency-proceedings, removed, closed]
+    # ADR-0002 and ADR-0003. These change decisions, so they are versioned with the rules. Each company
+    # costs about 3 Companies House requests, so 25 stays well inside the client's limit of 550 per
+    # 5 minutes.
+    ownership:
+      fail-at-percent: 50
+      max-depth: 5
+      max-companies: 25
     # Corporate PSC registration countries treated as UK (compared case-insensitively).
     uk-countries: [united kingdom, uk, great britain, england, wales, scotland, northern ireland,
-                   england and wales, england & wales, gb]
+                   england and wales, england & wales, gb, gbr]
     # SIC 2007 codes whose activity normally needs FCA authorisation or registration.
     regulated-sic-codes:
       "64191": Banks

@@ -4,14 +4,21 @@ import com.cypherz01.kyb.companieshouse.CompanyNumber;
 import com.cypherz01.kyb.companieshouse.InvalidCompanyNumberException;
 import com.cypherz01.kyb.companieshouse.model.Psc;
 import com.cypherz01.kyb.companieshouse.model.PscKind;
+import com.cypherz01.kyb.matching.MatchCandidate;
+import com.cypherz01.kyb.matching.MatchSubject;
+import com.cypherz01.kyb.matching.NameMatcher;
 import com.cypherz01.kyb.matching.NameNormaliser;
+import com.cypherz01.kyb.matching.NormalisedName;
 import com.cypherz01.kyb.matching.SubjectType;
+import com.cypherz01.kyb.sanctions.model.NameKind;
+import com.cypherz01.kyb.scoring.ScoringProperties;
 import java.time.YearMonth;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,13 +38,19 @@ public class OwnershipWalker {
         ParentRecord find(String companyNumber);
     }
 
-    private final OwnershipProperties props;
+    private final ScoringProperties.Ownership props;
     private final NameNormaliser normaliser;
+    private final NameMatcher matcher;
     private final Set<String> ukCountries;
 
-    public OwnershipWalker(OwnershipProperties props, NameNormaliser normaliser, List<String> ukCountries) {
+    public OwnershipWalker(
+            ScoringProperties.Ownership props,
+            NameNormaliser normaliser,
+            NameMatcher matcher,
+            List<String> ukCountries) {
         this.props = props;
         this.normaliser = normaliser;
+        this.matcher = matcher;
         this.ukCountries =
                 ukCountries.stream().map(c -> c.trim().toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
     }
@@ -65,8 +78,9 @@ public class OwnershipWalker {
         final int level;
         final boolean screenable;
         final YearMonth birthDate;
-        final String nationality;
+        final Set<String> nationalities = new LinkedHashSet<>();
         boolean followed;
+        String registeredName;
         ChainStop stop;
 
         Node(
@@ -85,7 +99,13 @@ public class OwnershipWalker {
             this.level = level;
             this.screenable = screenable;
             this.birthDate = birthDate;
-            this.nationality = nationality;
+            addNationality(nationality);
+        }
+
+        void addNationality(String nationality) {
+            if (!blank(nationality)) {
+                nationalities.add(nationality);
+            }
         }
     }
 
@@ -127,10 +147,32 @@ public class OwnershipWalker {
         }
 
         void found(Pending parent, Node node, ParentRecord record) {
+            if (record.profile() == null) {
+                notes.add("'%s' could not be checked against its Companies House profile: %s"
+                        .formatted(node.name, record.reason()));
+            } else {
+                String registered = record.profile().value().name();
+                if (!sameCompany(node, registered)) {
+                    node.followed = false;
+                    stop(
+                            node,
+                            StopReason.UNRESOLVED,
+                            "'%s' gives number %s, which Companies House holds as '%s'"
+                                    .formatted(node.name, parent.number, registered));
+                    return;
+                }
+                node.registeredName = registered;
+            }
             List<Psc> current =
                     record.pscs().value().stream().filter(Psc::isCurrent).toList();
             if (!current.isEmpty()) {
                 expand(parent.id, parent.level + 1, current);
+            } else if (record.exemptions() == null) {
+                stop(
+                        node,
+                        StopReason.UNAVAILABLE,
+                        "'%s' declares no PSCs and its exemptions could not be read: %s"
+                                .formatted(node.name, record.reason()));
             } else if (record.exemptions().value().exempt()) {
                 String exemptions =
                         String.join(", ", record.exemptions().value().current());
@@ -141,6 +183,38 @@ public class OwnershipWalker {
             } else {
                 stop(node, StopReason.NO_PSCS, "'%s' declares no PSCs and has no exemption".formatted(node.name));
             }
+        }
+
+        /**
+         * Registration numbers are free text and get padded, so one can land on an unrelated company.
+         * An entry with no name has nothing to contradict the register.
+         */
+        boolean sameCompany(Node node, String registered) {
+            if (!node.screenable || blank(registered)) {
+                return true;
+            }
+            NormalisedName entry = normaliser.normalise(node.name, SubjectType.ORGANISATION);
+            NormalisedName held = normaliser.normalise(registered, SubjectType.ORGANISATION);
+            if (entry.sortedKey().equals(held.sortedKey())) {
+                return true;
+            }
+            MatchCandidate candidate = new MatchCandidate(
+                    0,
+                    0,
+                    "companies-house",
+                    "Company",
+                    registered,
+                    registered,
+                    NameKind.PRIMARY,
+                    held,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of());
+            MatchSubject subject = new MatchSubject(entry, SubjectType.ORGANISATION, null, Set.of());
+            return matcher.score(subject, candidate).similarity() >= matcher.possibleThreshold();
         }
 
         /** Adds what {@code ownedId} is held by. {@code level} is how far above the company they sit. */
@@ -165,8 +239,8 @@ public class OwnershipWalker {
             String id = "PERSON|"
                     + normaliser.normalise(psc.name(), SubjectType.PERSON).sortedKey() + "|" + psc.dateOfBirth();
             nodes.computeIfAbsent(
-                    id,
-                    k -> new Node(k, psc.name(), "PERSON", null, level, true, psc.dateOfBirth(), psc.nationality()));
+                            id, k -> new Node(k, psc.name(), "PERSON", null, level, true, psc.dateOfBirth(), null))
+                    .addNationality(psc.nationality());
             link(id, ownedId, psc);
         }
 
@@ -245,7 +319,7 @@ public class OwnershipWalker {
                 }
                 return;
             }
-            Node node = new Node(id, name, "COMPANY", number, level, true, null, null);
+            Node node = new Node(id, name, "COMPANY", number, level, !blank(psc.name()), null, null);
             nodes.put(id, node);
             link(id, ownedId, psc);
             if (level > props.maxDepth()) {
@@ -266,8 +340,12 @@ public class OwnershipWalker {
         }
 
         void opaque(String ownedId, int level, Psc psc, String name, StopReason reason, String detail) {
+            // The country is part of the identity: one name in two countries is two companies.
+            String country = blank(psc.registrationCountry())
+                    ? ""
+                    : psc.registrationCountry().trim().toLowerCase(Locale.ROOT);
             String id = "ORGANISATION|"
-                    + normaliser.normalise(name, SubjectType.ORGANISATION).sortedKey();
+                    + normaliser.normalise(name, SubjectType.ORGANISATION).sortedKey() + "|" + country;
             Node node = nodes.computeIfAbsent(
                     id, k -> new Node(k, name, "ORGANISATION", null, level, !blank(psc.name()), null, null));
             link(id, ownedId, psc);
@@ -299,12 +377,14 @@ public class OwnershipWalker {
         /** The same owner listed twice over one company keeps the higher holding, not the sum. */
         void link(String ownerId, String ownedId, Psc psc) {
             Holding holding = Holding.fromNatures(psc.naturesOfControl());
-            if (!holding.recognised() && !psc.naturesOfControl().isEmpty()) {
-                notes.add("The control held by '%s' over '%s' is not understood (%s), so it is treated as influence"
+            List<String> unknown = Holding.unknownNatures(psc.naturesOfControl());
+            if (!unknown.isEmpty()) {
+                notes.add("The control held by '%s' over '%s' includes natures not understood (%s)%s"
                         .formatted(
                                 nodes.get(ownerId).name,
                                 nodes.get(ownedId).name,
-                                String.join(", ", psc.naturesOfControl())));
+                                String.join(", ", unknown),
+                                holding.recognised() ? "" : ", so it is treated as influence"));
             }
             String key = ownerId + "->" + ownedId;
             RawLink existing = links.get(key);
@@ -336,7 +416,17 @@ public class OwnershipWalker {
                 }
                 if (n.level >= 2 && n.screenable && interest != null) {
                     parties.add(new OwnershipGraph.Party(
-                            n.name, n.followed, n.type.equals("PERSON"), n.birthDate, n.nationality, interest));
+                            n.name,
+                            n.followed,
+                            n.type.equals("PERSON"),
+                            n.birthDate,
+                            String.join(",", n.nationalities),
+                            interest));
+                }
+                if (n.registeredName != null && !sameKey(n.name, n.registeredName, n.screenable)) {
+                    // A direct parent's registered name is at the first level, as its PSC entry is.
+                    parties.add(new OwnershipGraph.Party(
+                            n.registeredName, true, false, null, null, n.level >= 2 ? interest : null));
                 }
             }
             List<OwnershipTree.Link> treeLinks = links.values().stream()
@@ -354,6 +444,17 @@ public class OwnershipWalker {
                     List.copyOf(stops),
                     List.copyOf(notes));
         }
+    }
+
+    /** True if screening the registered name would only repeat the PSC entry. */
+    private boolean sameKey(String entry, String registered, boolean entryIsScreened) {
+        return entryIsScreened
+                && normaliser
+                        .normalise(entry, SubjectType.ORGANISATION)
+                        .sortedKey()
+                        .equals(normaliser
+                                .normalise(registered, SubjectType.ORGANISATION)
+                                .sortedKey());
     }
 
     private static String companyId(String number) {

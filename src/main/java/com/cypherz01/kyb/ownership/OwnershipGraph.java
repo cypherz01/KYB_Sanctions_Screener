@@ -16,7 +16,8 @@ public record OwnershipGraph(OwnershipTree tree, List<Party> parties, List<Chain
      * @param followedCompany a company whose own PSCs were looked up
      * @param person an individual rather than an organisation
      * @param birthDate month and year, for individuals
-     * @param nationality as published, for individuals
+     * @param nationality every nationality published for them, comma-separated, for individuals
+     * @param interest what they effectively hold; null if they count as a first-level party
      */
     public record Party(
             String name,

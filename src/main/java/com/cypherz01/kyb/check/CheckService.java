@@ -182,11 +182,22 @@ public class CheckService {
 
     /** A missing or unreachable parent is a finding about the chain, not a failure of the check. */
     private ParentRecord fetchParent(String number) {
+        Sourced<CompanyProfile> profile = null;
+        Sourced<PscExemptions> exemptions = null;
+        String reason = null;
         try {
-            return ParentRecord.found(
-                    companiesHouse.getProfile(number),
-                    companiesHouse.getPscs(number),
-                    companiesHouse.getExemptions(number));
+            try {
+                profile = companiesHouse.getProfile(number);
+            } catch (CompaniesHouseUnavailableException e) {
+                reason = e.getMessage();
+            }
+            Sourced<List<Psc>> pscs = companiesHouse.getPscs(number);
+            try {
+                exemptions = companiesHouse.getExemptions(number);
+            } catch (CompaniesHouseUnavailableException e) {
+                reason = reason == null ? e.getMessage() : reason;
+            }
+            return ParentRecord.found(profile, pscs, exemptions, reason);
         } catch (CompanyNotFoundException e) {
             return ParentRecord.notFound();
         } catch (CompaniesHouseUnavailableException e) {

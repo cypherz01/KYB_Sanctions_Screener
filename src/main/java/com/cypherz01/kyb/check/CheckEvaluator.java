@@ -171,11 +171,7 @@ public class CheckEvaluator {
                 List.of(evidence.profile(), evidence.officers(), evidence.pscs(), evidence.exemptions()));
         if (evidence.parents() != null) {
             for (ParentRecord parent : evidence.parents().values()) {
-                if (parent.status() == ParentRecord.Status.FOUND) {
-                    calls.add(parent.profile());
-                    calls.add(parent.pscs());
-                    calls.add(parent.exemptions());
-                }
+                calls.addAll(parent.answeredCalls());
             }
         }
         return calls;

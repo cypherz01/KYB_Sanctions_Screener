@@ -167,12 +167,14 @@ Rules, points and thresholds live in [`scoring-rules.yml`](src/main/resources/sc
 
 A total of 40 or more gives `REVIEW`, and 80 or more gives `FAIL`. A strong match fails a company whatever the total and adds no points of its own, so a `FAIL` can show a score of 0: the `autoFail` flag on the factor says why. Each factor carries a plain-English `detail`, the source and fetch time it rests on, and for sanctions the subject, the matched entity and the matcher's evidence. Stale cached data is flagged, never hidden.
 
-Checked on real data on 2026-11-07 and 2026-11-08, before ownership look-through was added:
+Checked on real data on 2026-11-09, with ownership look-through:
 
 | Company | Decision | Why |
 |---|---|---|
 | Tesco PLC (00445790) | PASS, 0 | Listed company, so the PSC exemption explains why no PSCs are declared |
-| Barclays Bank UK PLC (09740322) | PASS, 5 | Officer churn only. FCA FRN 759676 matched by Companies House number |
+| Barclays Bank UK PLC (09740322) | PASS, 5 | Officer churn only. FCA FRN 759676 matched by Companies House number. Ownership followed to Barclays PLC, which is listed and so exempt |
+| HSBC Bank PLC (00014259) | PASS, 5 | Officer churn only. Ownership followed to HSBC Holdings, also listed and exempt |
+| Yorkshire Electricity Group PLC (02366995) | PASS, 15 | Ownership followed through three UK companies to Berkshire Hathaway, a US owner Companies House cannot see past |
 | Lloyds Banking Group PLC (SC095000) | PASS, 30 | Officer churn, plus "regulated SIC code but not authorised": a holding company (SIC 64205) is not itself on the Register |
 
 ## Ownership look-through
@@ -293,7 +295,7 @@ COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
 ## Known limitations
 
 - **UK only**, and no adverse-media screening or individual identity verification.
-- **Ownership stops at the UK border**, and rests on what was declared to Companies House. A foreign owner raises a factor, but nobody behind it is seen, and a false declaration cannot be detected.
+- **Ownership stops at the UK border**, and rests on what was declared to Companies House. A foreign owner raises a factor, but nobody behind it is seen, and a false declaration cannot be detected. A parent renamed since it was last declared can show as opaque, because its name must match the register before it is followed.
 - **FCA matching is inherently ambiguous** where a firm has no Companies House number on the Register, since it then rests on name and postcode. The result reports its basis and confidence.
 - **Only the first page of FCA search results** (20 firms) is considered.
 - **Authorisation is checked, permissions are not.** A firm being authorised is the signal; whether it is authorised for the company's actual activity is not compared.

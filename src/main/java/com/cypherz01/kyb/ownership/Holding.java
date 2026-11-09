@@ -56,7 +56,11 @@ public record Holding(double lowerPercent, double upperPercent, Kind kind, boole
 
     /** The natures this code cannot read, so each can be noted even if another was understood. */
     public static List<String> unknownNatures(List<String> naturesOfControl) {
-        throw new UnsupportedOperationException("not implemented yet");
+        return naturesOfControl.stream()
+                .filter(nature -> !CONTROL.matcher(nature).matches()
+                        && !INFLUENCE.matcher(nature).matches()
+                        && !BAND.matcher(nature).matches())
+                .toList();
     }
 
     private static Holding ofBand(String band) {
