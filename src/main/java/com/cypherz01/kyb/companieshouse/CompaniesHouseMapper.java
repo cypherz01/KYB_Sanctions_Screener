@@ -125,7 +125,7 @@ public class CompaniesHouseMapper {
                 p.notifiedOn(),
                 p.ceasedOn(),
                 p.identification() == null ? null : p.identification().countryRegistered(),
-                null,
+                p.identification() == null ? null : p.identification().registrationNumber(),
                 p.naturesOfControl());
     }
 

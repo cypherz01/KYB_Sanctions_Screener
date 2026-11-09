@@ -5,6 +5,8 @@ import com.cypherz01.kyb.audit.AuditEventType;
 import com.cypherz01.kyb.audit.AuditRepository;
 import com.cypherz01.kyb.cache.Sourced;
 import com.cypherz01.kyb.companieshouse.CompaniesHouseClient;
+import com.cypherz01.kyb.companieshouse.CompaniesHouseUnavailableException;
+import com.cypherz01.kyb.companieshouse.CompanyNotFoundException;
 import com.cypherz01.kyb.companieshouse.CompanyNumber;
 import com.cypherz01.kyb.companieshouse.model.CompanyProfile;
 import com.cypherz01.kyb.companieshouse.model.Officer;
@@ -13,6 +15,8 @@ import com.cypherz01.kyb.companieshouse.model.PscExemptions;
 import com.cypherz01.kyb.fca.FcaRegisterClient;
 import com.cypherz01.kyb.fca.model.FcaAssessment;
 import com.cypherz01.kyb.matching.SanctionsDataUnavailableException;
+import com.cypherz01.kyb.ownership.OwnershipWalker;
+import com.cypherz01.kyb.ownership.ParentRecord;
 import com.cypherz01.kyb.sanctions.DatasetVersion;
 import com.cypherz01.kyb.sanctions.SanctionsRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -47,6 +51,7 @@ public class CheckService {
     private final SanctionsRepository datasets;
     private final CheckEvaluator evaluator;
     private final EvidenceSnapshots snapshots;
+    private final OwnershipWalker walker;
     private final CheckRepository checks;
     private final AuditRepository audit;
     private final TransactionTemplate tx;
@@ -60,6 +65,7 @@ public class CheckService {
             SanctionsRepository datasets,
             CheckEvaluator evaluator,
             EvidenceSnapshots snapshots,
+            OwnershipWalker walker,
             CheckRepository checks,
             AuditRepository audit,
             TransactionTemplate tx,
@@ -71,6 +77,7 @@ public class CheckService {
         this.datasets = datasets;
         this.evaluator = evaluator;
         this.snapshots = snapshots;
+        this.walker = walker;
         this.checks = checks;
         this.audit = audit;
         this.tx = tx;
@@ -102,7 +109,8 @@ public class CheckService {
 
         CompanyProfile company = profile.value();
         FcaAssessment regulatory = fca.assess(company.name(), number, CheckEvidence.postcodeOf(company));
-        CheckEvidence evidence = new CheckEvidence(profile, officers, pscs, exemptions, regulatory);
+        CheckEvidence evidence = new CheckEvidence(
+                profile, officers, pscs, exemptions, regulatory, lookThrough(number, company.name(), pscs.value()));
         Instant gatheredAt = clock.instant();
 
         UUID id = UUID.randomUUID();
@@ -155,6 +163,34 @@ public class CheckService {
             return json.readTree(stored);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Stored check " + checkId + " is not valid JSON", e);
+        }
+    }
+
+    /**
+     * Fetches each parent the walk asks for, and keeps the answers. The evaluator then walks those
+     * answers, exactly as a replay does, so it stays free of external calls.
+     */
+    private Map<String, ParentRecord> lookThrough(String number, String name, List<Psc> pscs) {
+        Map<String, ParentRecord> parents = new LinkedHashMap<>();
+        walker.walk(number, name, pscs, parent -> {
+            ParentRecord record = fetchParent(parent);
+            parents.put(parent, record);
+            return record;
+        });
+        return parents;
+    }
+
+    /** A missing or unreachable parent is a finding about the chain, not a failure of the check. */
+    private ParentRecord fetchParent(String number) {
+        try {
+            return ParentRecord.found(
+                    companiesHouse.getProfile(number),
+                    companiesHouse.getPscs(number),
+                    companiesHouse.getExemptions(number));
+        } catch (CompanyNotFoundException e) {
+            return ParentRecord.notFound();
+        } catch (CompaniesHouseUnavailableException e) {
+            return ParentRecord.unavailable(e.getMessage());
         }
     }
 
