@@ -93,6 +93,15 @@ class DemoScriptIntegrationTest {
         assertThat(demo.output()).contains("ACME WIDGETS LTD").contains("FAIL").contains("SANCTIONS_STRONG_MATCH");
     }
 
+    /** M8: the owner is two companies away, and the arithmetic behind the decision is on show. */
+    @Test
+    void showsASanctionedOwnerTwoLevelsUpFailingACompany() {
+        assertThat(demo.output())
+                .contains("NORTHGATE FOODS LTD")
+                .contains("two levels up")
+                .contains("56.25");
+    }
+
     /** The point of the service is that it explains itself, so the demo must show the reasoning. */
     @Test
     void showsWhyTheMatchWasMade() {

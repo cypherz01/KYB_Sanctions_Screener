@@ -225,6 +225,7 @@ class SubjectExtractorTest {
                 LocalDate.of(2016, 6, 30),
                 ceased,
                 kind == PscKind.CORPORATE ? "Panama" : null,
+                null,
                 List.of());
     }
 }

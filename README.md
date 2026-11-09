@@ -43,7 +43,7 @@ flowchart LR
 What happens on `POST /api/v1/checks`:
 
 1. **Gather.** The profile, officers, PSCs (persons with significant control) and PSC exemptions come from Companies House, through a cache. The active sanctions dataset version is pinned, so an import mid-check cannot split the check across two datasets. The FCA Register assessment comes last, and an outage there does not stop the check.
-2. **Decide who is screened.** The company, every current officer and every current PSC. One party holding several roles is screened once. Super-secure PSCs cannot be screened, and the result notes this.
+2. **Decide who is screened.** The company, every current officer and every current PSC, then any owners found by following UK corporate PSCs up the chain ([ownership look-through](#ownership-look-through)). One party holding several roles is screened once. Super-secure PSCs cannot be screened, and the result notes this.
 3. **Screen** each subject against that one dataset: Postgres retrieves up to 50 candidates, then Java scores them and records the evidence.
 4. **Score** with deterministic rules, whose version is recorded on the check.
 5. **Store** the result, the raw response from each source and the audit events in one transaction, and return the result with `201`.
@@ -83,6 +83,13 @@ why the match was made:
   - Birth year and month match (1971-03)
   - Nationality matches (RU)
   - Name similarity 1.00 (jaro-winkler 1.00, token overlap 1.00, phonetic 1.00, alignment 1.00)
+
+== A sanctioned owner two levels up, behind a holding company, fails a company too
+NORTHGATE FOODS LTD (05550001)
+decision: FAIL, score: 0
+factors:  SANCTIONS_STRONG_MATCH
+automatic: a strong sanctions match fails a company whatever its score
+why: UPSTREAM_PSC 'Mr Ivan Petrov' strongly matches sanctioned Person 'Ivan Petrov' (similarity 1.00); effective ownership 56.25% to 100%
 
 == The same person in Cyrillic is found too, through transliteration
 Иван Петров matches Ivan Petrov: STRONG, similarity 1.0
@@ -149,21 +156,32 @@ Rules, points and thresholds live in [`scoring-rules.yml`](src/main/resources/sc
 | Regulated SIC code but no FCA authorisation found | 25 |
 | No PSCs declared (waived when Companies House records a PSC exemption, e.g. a listed company) | 15 |
 | Corporate PSC registered outside the UK | 10 |
+| Ownership chain ends at an owner that cannot be seen past, or reaches a limit | 15 each |
+| Ownership chain loops back on itself | 25 |
 | Incorporated in the last 90 days / accounts overdue | 10 each |
 | FCA Register unavailable | 10 |
 | High officer churn (3+ changes in 365 days) | 5 |
 | Possible sanctions match | 35, plus up to 15 scaled by similarity |
-| **Strong sanctions match** | **automatic FAIL** |
+| **Strong sanctions match** on the company, an officer or a direct PSC | **automatic FAIL** |
+| **Strong sanctions match** above the first level | **automatic FAIL** at 50% or more, or with control. Otherwise 40, which is `REVIEW` |
 
 A total of 40 or more gives `REVIEW`, and 80 or more gives `FAIL`. A strong match fails a company whatever the total and adds no points of its own, so a `FAIL` can show a score of 0: the `autoFail` flag on the factor says why. Each factor carries a plain-English `detail`, the source and fetch time it rests on, and for sanctions the subject, the matched entity and the matcher's evidence. Stale cached data is flagged, never hidden.
 
-Checked on real data on 2026-11-07 and 2026-11-08:
+Checked on real data on 2026-11-07 and 2026-11-08, before ownership look-through was added:
 
 | Company | Decision | Why |
 |---|---|---|
 | Tesco PLC (00445790) | PASS, 0 | Listed company, so the PSC exemption explains why no PSCs are declared |
 | Barclays Bank UK PLC (09740322) | PASS, 5 | Officer churn only. FCA FRN 759676 matched by Companies House number |
 | Lloyds Banking Group PLC (SC095000) | PASS, 30 | Officer churn, plus "regulated SIC code but not authorised": a holding company (SIC 64205) is not itself on the Register |
+
+## Ownership look-through
+
+A sanctioned person who owns a company through a holding company never appears on that company's own record. So a check follows UK-registered corporate PSCs up the chain, for at most 5 levels and 25 companies, and screens each company and its PSCs along the way, but not their officers. Companies House publishes ownership only as bands, so each owner's effective stake is calculated as a range: bands multiply along a path, and separate paths add up. S holding 75–100% of H, which holds 75–100% of the company, gives 56.25–100%.
+
+The decision follows OFAC's 50% rule and the UK's "owned or controlled" test. A strong match that must hold at least 50%, or holds control, fails the company automatically. Any other strong match above the first level goes to a person, with the calculation in the evidence. A chain that cannot be followed to its end raises its own factor, so it is never read as clean. The check response includes the full `ownership` tree: who holds what, the bounds, and where each chain stopped and why.
+
+A check made before this existed replays without look-through, with a note saying so, and the difference is reported rather than the replay refused. The planning and the reasoning are in the decision records: [review of v1 and plan](docs/adr/0001-review-of-v1-and-plan.md), [look-through scope](docs/adr/0002-look-through-scope.md), and [effective ownership and control](docs/adr/0003-effective-ownership-and-control.md).
 
 ## Audit and replay
 
@@ -275,6 +293,7 @@ COMPANIES_HOUSE_API_KEY=your-key ./mvnw -Psmoke test
 ## Known limitations
 
 - **UK only**, and no adverse-media screening or individual identity verification.
+- **Ownership stops at the UK border**, and rests on what was declared to Companies House. A foreign owner raises a factor, but nobody behind it is seen, and a false declaration cannot be detected.
 - **FCA matching is inherently ambiguous** where a firm has no Companies House number on the Register, since it then rests on name and postcode. The result reports its basis and confidence.
 - **Only the first page of FCA search results** (20 firms) is considered.
 - **Authorisation is checked, permissions are not.** A firm being authorised is the signal; whether it is authorised for the company's actual activity is not compared.

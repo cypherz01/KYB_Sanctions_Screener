@@ -83,6 +83,50 @@
                    "country_of_residence": "Cyprus", "date_of_birth": {"month": 3, "year": 1971}, "notified_on": "2016-06-30",
                    "natures_of_control": ["ownership-of-shares-75-to-100-percent"]}]
       }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/05550001"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "company_number": "05550001", "company_name": "NORTHGATE FOODS LTD", "company_status": "active", "type": "ltd",
+        "date_of_creation": "2012-09-14",
+        "registered_office_address": {"address_line_1": "4 Mill Yard", "locality": "York", "postal_code": "YO1 7HH", "country": "England"},
+        "sic_codes": ["10710"], "accounts": {"overdue": false}, "confirmation_statement": {"overdue": false}, "has_insolvency_history": false
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/05550001/officers"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "kind": "officer-list", "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "BROWN, Alex", "officer_role": "director", "appointed_on": "2012-09-14", "nationality": "British",
+                   "country_of_residence": "United Kingdom", "date_of_birth": {"month": 8, "year": 1985}}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/05550001/persons-with-significant-control"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "TIDEWAY HOLDINGS LTD", "kind": "corporate-entity-person-with-significant-control", "notified_on": "2016-06-30",
+                   "identification": {"country_registered": "England", "registration_number": "05550002", "legal_form": "Limited company"},
+                   "natures_of_control": ["ownership-of-shares-75-to-100-percent"]}]
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/05550002"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "company_number": "05550002", "company_name": "TIDEWAY HOLDINGS LTD", "company_status": "active", "type": "ltd",
+        "date_of_creation": "2011-01-20",
+        "registered_office_address": {"address_line_1": "8 Quay Street", "locality": "Hull", "postal_code": "HU1 1AA", "country": "England"},
+        "sic_codes": ["70100"], "accounts": {"overdue": false}, "confirmation_statement": {"overdue": false}, "has_insolvency_history": false
+      }}
+    },
+    {
+      "request": {"method": "GET", "urlPath": "/company/05550002/persons-with-significant-control"},
+      "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "jsonBody": {
+        "items_per_page": 100, "start_index": 0, "total_results": 1,
+        "items": [{"name": "Mr Ivan Petrov", "kind": "individual-person-with-significant-control", "nationality": "Russian",
+                   "country_of_residence": "Cyprus", "date_of_birth": {"month": 3, "year": 1971}, "notified_on": "2016-06-30",
+                   "natures_of_control": ["voting-rights-75-to-100-percent"]}]
+      }}
     }
   ]
 }

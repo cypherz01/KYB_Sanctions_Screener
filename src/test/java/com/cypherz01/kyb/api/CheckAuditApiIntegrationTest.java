@@ -220,7 +220,7 @@ class CheckAuditApiIntegrationTest {
         String id = idOf(runCheck(CLEAN));
         String altered = copyCheck(
                 id,
-                "replace(response::text, '\"engineVersion\":\"1.0.0', '\"engineVersion\":\"0.9.0')::json",
+                "replace(response::text, '\"engineVersion\":\"2.0.0', '\"engineVersion\":\"0.9.0')::json",
                 "'0.9.0'",
                 true);
 
@@ -232,7 +232,7 @@ class CheckAuditApiIntegrationTest {
                 .containsExactly("engineVersion");
         JsonNode difference = replay.path("differences").get(0);
         assertThat(difference.path("original").asText()).startsWith("0.9.0");
-        assertThat(difference.path("replayed").asText()).startsWith("1.0.0");
+        assertThat(difference.path("replayed").asText()).startsWith("2.0.0");
         assertThat(replay.path("original").path("engineVersion").asText()).isEqualTo("0.9.0");
         // The outcome itself is unchanged, and the two summaries show that.
         assertThat(replay.path("replayed").path("decision").asText())
@@ -269,7 +269,7 @@ class CheckAuditApiIntegrationTest {
         JsonNode replayed = trail.path("events").get(3).path("details");
         assertThat(replayed.path("identical").asBoolean()).isTrue();
         assertThat(replayed.path("decision").asText()).isEqualTo("FAIL");
-        assertThat(replayed.path("engineVersion").asText()).startsWith("1.0.0");
+        assertThat(replayed.path("engineVersion").asText()).startsWith("2.0.0");
     }
 
     // ---------- when a replay is impossible ----------
@@ -290,7 +290,7 @@ class CheckAuditApiIntegrationTest {
         JsonNode trail = trail(prunedCheck);
         assertThat(trail.path("datasetVersion").path("label").asText()).isEqualTo("check-v1");
         assertThat(trail.path("datasetVersion").path("status").asText()).isEqualTo("PRUNED");
-        assertThat(trail.path("snapshots").size()).isEqualTo(5);
+        assertThat(trail.path("snapshots").size()).isEqualTo(6);
         assertThat(eventTypes(trail)).endsWith("CHECK_REPLAY_REFUSED");
         assertThat(trail.path("events").get(3).path("details").path("reason").asText())
                 .contains("check-v1");
@@ -360,6 +360,7 @@ class CheckAuditApiIntegrationTest {
                         "companies-house/officers",
                         "companies-house/pscs",
                         "companies-house/exemptions",
+                        "companies-house/ownership",
                         "fca-register/assessment");
 
         JsonNode profile = snapshot(trail, "companies-house", "profile");

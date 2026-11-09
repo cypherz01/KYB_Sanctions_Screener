@@ -31,10 +31,15 @@ kyb:
     # Callers send this as X-Api-Key on every /api/** request. Unset means every API call is
     # refused (fail closed), never left open by accident.
     api-key: ${KYB_API_KEY:}
+  # ADR-0002. Each company costs about 3 Companies House requests, so 25 stays well inside the client's
+  # limit of 550 per 5 minutes.
+  ownership:
+    max-depth: 5
+    max-companies: 25
   checks:
     # Bump when matching or scoring CODE changes (config changes are versioned in scoring-rules.yml).
     # The normaliser version is appended automatically.
-    engine-version: 1.0.0
+    engine-version: 2.0.0
     include-resigned-officers: false
     # Companies House gives nationality as a demonym; the matcher compares ISO 3166-1 alpha-2 codes.
     # Unknown nationalities are simply not compared (neutral). Keys are lower case.

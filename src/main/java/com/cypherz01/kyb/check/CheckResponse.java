@@ -4,6 +4,7 @@ import com.cypherz01.kyb.fca.model.FcaAvailability;
 import com.cypherz01.kyb.fca.model.FcaFirmMatch;
 import com.cypherz01.kyb.fca.model.FcaWarningMatch;
 import com.cypherz01.kyb.matching.ScreeningMatch;
+import com.cypherz01.kyb.ownership.OwnershipTree;
 import com.cypherz01.kyb.scoring.Decision;
 import com.cypherz01.kyb.scoring.Factor;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -17,6 +18,7 @@ import java.util.UUID;
  * @param factors contributing factors with their points and evidence
  * @param notes things considered but deliberately not scored, and parties not screenable
  * @param subjects every party screened, with any retained sanctions matches
+ * @param ownership who owns the company up the chain, and where each chain stopped and why
  * @param sources provenance of each source used (fetch time, cache, staleness, dataset version)
  */
 public record CheckResponse(
@@ -29,6 +31,7 @@ public record CheckResponse(
         List<Factor> factors,
         List<String> notes,
         List<ScreenedSubject> subjects,
+        OwnershipTree ownership,
         Regulatory regulatory,
         List<SourceRef> sources,
         String engineVersion,

@@ -97,6 +97,9 @@ printf '%s' "$LAST_BODY" \
     | sed 's/^"evidence":\["//; s/"\]$//' \
     | awk -F'","' '{ for (i = 1; i <= NF; i++) print "  - " $i }'
 
+check 05550001 FAIL "A sanctioned owner two levels up, behind a holding company, fails a company too"
+printf 'why: %s\n' "$(printf '%s' "$LAST_BODY" | text_field detail)"
+
 heading "The same person in Cyrillic is found too, through transliteration"
 NAME="Иван Петров"
 SCREEN="$(api_post /api/v1/screen/name "{\"name\":\"$NAME\",\"type\":\"PERSON\",\"birthDate\":\"1971-03\",\"country\":\"RU\"}")"

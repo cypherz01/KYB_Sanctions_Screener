@@ -57,6 +57,15 @@ class ReadmeTest {
                 .contains("replay", "append-only");
     }
 
+    /** The README is already long, so the reasoning for v2 lives in the ADRs and must be reachable. */
+    @Test
+    void linksToTheDecisionRecordsForLookThrough() {
+        assertThat(readme)
+                .contains("docs/adr/0001-review-of-v1-and-plan.md")
+                .contains("docs/adr/0002-look-through-scope.md")
+                .contains("docs/adr/0003-effective-ownership-and-control.md");
+    }
+
     @Test
     void hasAnArchitectureDiagramAndWalkthrough() {
         String architecture = section("## Architecture");

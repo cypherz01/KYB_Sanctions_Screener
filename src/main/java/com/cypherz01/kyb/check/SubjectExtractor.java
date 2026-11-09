@@ -6,6 +6,8 @@ import com.cypherz01.kyb.companieshouse.model.Psc;
 import com.cypherz01.kyb.matching.NameNormaliser;
 import com.cypherz01.kyb.matching.PartialDate;
 import com.cypherz01.kyb.matching.SubjectType;
+import com.cypherz01.kyb.ownership.EffectiveInterest;
+import com.cypherz01.kyb.ownership.OwnershipGraph;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -42,6 +44,15 @@ public class SubjectExtractor {
     }
 
     public SubjectExtraction extract(CompanyProfile profile, List<Officer> officers, List<Psc> pscs) {
+        return extract(profile, officers, pscs, List.of());
+    }
+
+    /**
+     * @param upstream parties found above the first level. Someone also found directly is one subject,
+     *     and is treated as direct: ownership never excuses anyone at the first level.
+     */
+    public SubjectExtraction extract(
+            CompanyProfile profile, List<Officer> officers, List<Psc> pscs, List<OwnershipGraph.Party> upstream) {
         Map<String, Builder> subjects = new LinkedHashMap<>();
         List<String> notes = new ArrayList<>();
 
@@ -106,8 +117,35 @@ public class SubjectExtractor {
             }
         }
 
+        for (OwnershipGraph.Party party : upstream) {
+            addUpstream(subjects, party);
+        }
+
         List<Subject> result = subjects.values().stream().map(Builder::build).toList();
         return new SubjectExtraction(result, List.copyOf(notes));
+    }
+
+    private void addUpstream(Map<String, Builder> subjects, OwnershipGraph.Party party) {
+        SubjectType type = party.person() ? SubjectType.PERSON : SubjectType.ORGANISATION;
+        PartialDate birthDate = birthDate(party.birthDate());
+        String key = key(type, party.name(), birthDate);
+        Builder before = subjects.get(key);
+        boolean alreadyDirect = before != null && before.upstream == null;
+        add(
+                subjects,
+                party.followedCompany() ? SubjectRole.INTERMEDIATE_COMPANY : SubjectRole.UPSTREAM_PSC,
+                party.name(),
+                party.name(),
+                type,
+                birthDate,
+                countries(party.nationality()));
+        if (!alreadyDirect && subjects.containsKey(key)) {
+            subjects.get(key).keepStronger(party.interest());
+        }
+    }
+
+    private String key(SubjectType type, String screened, PartialDate birthDate) {
+        return type + "|" + normaliser.normalise(screened, type).sortedKey() + "|" + birthDate;
     }
 
     private void add(
@@ -121,7 +159,7 @@ public class SubjectExtractor {
         if (screened == null || screened.isBlank()) {
             return;
         }
-        String key = type + "|" + normaliser.normalise(screened, type).sortedKey() + "|" + birthDate;
+        String key = key(type, screened, birthDate);
         Builder existing = subjects.get(key);
         if (existing != null) {
             existing.roles.add(role);
@@ -168,6 +206,13 @@ public class SubjectExtractor {
         final SubjectType type;
         final PartialDate birthDate;
         final LinkedHashSet<String> countries;
+        EffectiveInterest upstream;
+
+        void keepStronger(EffectiveInterest interest) {
+            if (upstream == null || interest.lowerPercent() > upstream.lowerPercent()) {
+                upstream = interest;
+            }
+        }
 
         Builder(
                 SubjectRole role,
@@ -185,7 +230,8 @@ public class SubjectExtractor {
         }
 
         Subject build() {
-            return new Subject(List.copyOf(roles), published, screened, type, birthDate, Set.copyOf(countries));
+            return new Subject(
+                    List.copyOf(roles), published, screened, type, birthDate, Set.copyOf(countries), upstream);
         }
     }
 }

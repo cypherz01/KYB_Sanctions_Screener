@@ -3,7 +3,7 @@
 # must use the same rules.
 kyb:
   scoring:
-    version: "2026-11-07"
+    version: "2026-11-09"
     thresholds:
       review: 40
       fail: 80
@@ -13,12 +13,18 @@ kyb:
       ACCOUNTS_OVERDUE: 10
       NO_PSC_DECLARED: 15
       CORPORATE_PSC_OFFSHORE: 10
+      # ADR-0002: below the review threshold, so a foreign parent alone does not need a person.
+      OPAQUE_OWNERSHIP: 15
+      OWNERSHIP_LIMIT_REACHED: 15
+      # A loop has no real owner at the top, which is more suspicious than a gap.
+      CIRCULAR_OWNERSHIP: 25
       HIGH_OFFICER_CHURN: 5
       FCA_CLONE_OR_UNAUTHORISED_MATCH: 60
       FCA_NOT_AUTHORISED_FOR_ACTIVITY: 25
       FCA_UNAVAILABLE: 10
       SANCTIONS_POSSIBLE_MATCH: 35
-      # Automatic FAIL whatever the score; its points only show in the total.
+      # Automatic FAIL whatever the score; its points only show in the total. Above the first level,
+      # a stake that cannot be shown to reach 50% scores the review threshold instead (ADR-0003).
       SANCTIONS_STRONG_MATCH: 0
     # A POSSIBLE match earns up to this many points on top of its base, scaled linearly by where
     # its similarity falls between the POSSIBLE and STRONG thresholds.

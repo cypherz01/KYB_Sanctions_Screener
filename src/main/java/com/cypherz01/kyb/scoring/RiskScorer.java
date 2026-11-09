@@ -10,6 +10,10 @@ import com.cypherz01.kyb.fca.model.FcaMatchBasis;
 import com.cypherz01.kyb.fca.model.FcaWarningMatch;
 import com.cypherz01.kyb.matching.MatchBand;
 import com.cypherz01.kyb.matching.ScreeningMatch;
+import com.cypherz01.kyb.ownership.ChainStop;
+import com.cypherz01.kyb.ownership.EffectiveInterest;
+import com.cypherz01.kyb.ownership.StopReason;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -63,6 +67,10 @@ public class RiskScorer {
         accountsOverdue(in, factors);
         noPscDeclared(in, factors, notes);
         corporatePscOffshore(in, factors, notes);
+        ownershipStops(in, StopReason.Category.OPAQUE, FactorCode.OPAQUE_OWNERSHIP, factors);
+        ownershipStops(in, StopReason.Category.LIMIT, FactorCode.OWNERSHIP_LIMIT_REACHED, factors);
+        ownershipStops(in, StopReason.Category.CIRCULAR, FactorCode.CIRCULAR_OWNERSHIP, factors);
+        cleanOwnershipEnds(in, notes);
         officerChurn(in, factors);
         fcaClone(in, factors, notes);
         fcaNotAuthorised(in, factors);
@@ -158,6 +166,24 @@ public class RiskScorer {
         }
     }
 
+    /** One factor per kind of ending, naming every chain it covers, as a gap is one risk however many. */
+    private void ownershipStops(ScoringInputs in, StopReason.Category category, FactorCode code, List<Factor> factors) {
+        List<String> details = in.ownershipStops().stream()
+                .filter(s -> s.reason().category() == category)
+                .map(ChainStop::detail)
+                .toList();
+        if (!details.isEmpty()) {
+            factors.add(ch(in, code, "Ownership cannot be followed to its end: " + String.join("; ", details)));
+        }
+    }
+
+    private static void cleanOwnershipEnds(ScoringInputs in, List<String> notes) {
+        in.ownershipStops().stream()
+                .filter(s -> s.reason().category() == StopReason.Category.CLEAN)
+                .map(ChainStop::detail)
+                .forEach(notes::add);
+    }
+
     private void officerChurn(ScoringInputs in, List<Factor> factors) {
         LocalDate since = in.asOf().minusDays(props.officerChurn().windowDays());
         int changes = 0;
@@ -231,7 +257,8 @@ public class RiskScorer {
                     "Regulatory status could not be verified (" + fca.unavailableReason() + ")",
                     null,
                     null,
-                    new Factor.Source(FCA, null, null, null)));
+                    new Factor.Source(FCA, null, null, null),
+                    null));
         } else if (fca.availability() == FcaAvailability.STALE) {
             notes.add("The FCA Register was unavailable; a stale cached result fetched at " + fca.fetchedAt()
                     + " was used");
@@ -247,21 +274,25 @@ public class RiskScorer {
                 continue;
             }
             boolean isStrong = band == MatchBand.STRONG;
+            EffectiveInterest upstream = s.upstream();
+            boolean autoFail = isStrong && (upstream == null || holdsHalfOrControl(upstream));
             FactorCode code = isStrong ? FactorCode.SANCTIONS_STRONG_MATCH : FactorCode.SANCTIONS_POSSIBLE_MATCH;
-            int points = isStrong ? points(code) : possiblePoints(m.similarity());
+            int points =
+                    isStrong ? (autoFail ? points(code) : props.thresholds().review()) : possiblePoints(m.similarity());
             String detail = String.format(
-                    Locale.ROOT,
-                    "%s '%s' %s matches sanctioned %s '%s' (similarity %.2f)",
-                    String.join("/", s.roles()),
-                    s.name(),
-                    isStrong ? "strongly" : "possibly",
-                    m.schema(),
-                    m.matchedName(),
-                    m.similarity());
+                            Locale.ROOT,
+                            "%s '%s' %s matches sanctioned %s '%s' (similarity %.2f)",
+                            String.join("/", s.roles()),
+                            s.name(),
+                            isStrong ? "strongly" : "possibly",
+                            m.schema(),
+                            m.matchedName(),
+                            m.similarity())
+                    + (upstream == null ? "" : "; " + describe(upstream));
             factors.add(new Factor(
                     code,
                     points,
-                    isStrong,
+                    autoFail,
                     detail,
                     new Factor.Subject(s.roles(), s.name(), s.birthMonth()),
                     new Factor.Match(
@@ -271,8 +302,27 @@ public class RiskScorer {
                             m.similarity(),
                             m.band().name(),
                             m.evidence()),
-                    new Factor.Source(OPENSANCTIONS, null, null, in.datasetVersion())));
+                    new Factor.Source(OPENSANCTIONS, null, null, in.datasetVersion()),
+                    upstream));
         }
+    }
+
+    /** OFAC's 50% rule and the UK's "owned or controlled" test, applied to what the bands can prove. */
+    private static boolean holdsHalfOrControl(EffectiveInterest interest) {
+        return interest.control() || interest.lowerPercent() >= 50;
+    }
+
+    private static String describe(EffectiveInterest interest) {
+        if (interest.control()) {
+            return "holds control of the company through the ownership chain";
+        }
+        return "effective ownership " + percent(interest.lowerPercent()) + "% to " + percent(interest.upperPercent())
+                + "%";
+    }
+
+    /** Exact, because every published band is a multiple of a quarter: 37.5, not 37.500000. */
+    private static String percent(double value) {
+        return new BigDecimal(value).stripTrailingZeros().toPlainString();
     }
 
     /** Base points, plus up to {@code sanctions-possible-scale} by closeness to STRONG. */
@@ -296,7 +346,8 @@ public class RiskScorer {
                 detail,
                 null,
                 null,
-                new Factor.Source(CH, s == null ? null : s.fetchedAt(), s == null ? null : s.stale(), null));
+                new Factor.Source(CH, s == null ? null : s.fetchedAt(), s == null ? null : s.stale(), null),
+                null);
     }
 
     private Factor fcaFactor(ScoringInputs in, FactorCode code, String detail) {
@@ -308,7 +359,8 @@ public class RiskScorer {
                 detail,
                 null,
                 null,
-                new Factor.Source(FCA, fca.fetchedAt(), fca.stale(), null));
+                new Factor.Source(FCA, fca.fetchedAt(), fca.stale(), null),
+                null);
     }
 
     private int points(FactorCode code) {

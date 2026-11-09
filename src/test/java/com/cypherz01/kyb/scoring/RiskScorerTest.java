@@ -15,6 +15,9 @@ import com.cypherz01.kyb.fca.model.FcaMatchBasis;
 import com.cypherz01.kyb.fca.model.FcaWarningMatch;
 import com.cypherz01.kyb.matching.MatchBand;
 import com.cypherz01.kyb.matching.ScreeningMatch;
+import com.cypherz01.kyb.ownership.ChainStop;
+import com.cypherz01.kyb.ownership.EffectiveInterest;
+import com.cypherz01.kyb.ownership.StopReason;
 import com.cypherz01.kyb.sanctions.model.NameKind;
 import com.cypherz01.kyb.support.ShippedConfig;
 import java.time.Instant;
@@ -136,8 +139,8 @@ class RiskScorerTest {
 
     @Test
     void aSuperSecurePscIsADeclaredPsc() {
-        Psc secure =
-                new Psc(null, PscKind.SUPER_SECURE, null, null, null, LocalDate.of(2020, 1, 1), null, null, List.of());
+        Psc secure = new Psc(
+                null, PscKind.SUPER_SECURE, null, null, null, LocalDate.of(2020, 1, 1), null, null, null, List.of());
 
         assertThat(codes(scorer.score(clean().pscs(List.of(secure)).build())))
                 .doesNotContain(FactorCode.NO_PSC_DECLARED);
@@ -434,6 +437,195 @@ class RiskScorerTest {
         assertThat(r.scoringConfigVersion()).isEqualTo("custom");
     }
 
+    // ---------- a sanctions match above the first level (ADR-0003) ----------
+
+    @Test
+    void aStrongUpstreamMatchWithAtLeastHalfFailsAutomatically() {
+        EffectiveInterest interest = new EffectiveInterest(56.25, 100, false);
+
+        ScoreResult r =
+                scorer.score(clean().screenings(List.of(company(), upstream(match(0.95, MatchBand.STRONG), interest)))
+                        .build());
+
+        Factor f = only(r, FactorCode.SANCTIONS_STRONG_MATCH);
+        assertThat(r.decision()).isEqualTo(Decision.FAIL);
+        assertThat(f.autoFail()).isTrue();
+        assertThat(f.ownership()).isEqualTo(interest);
+    }
+
+    @Test
+    void exactlyHalfIsEnoughToFail() {
+        ScoreResult r = scorer.score(clean().screenings(List.of(
+                        company(), upstream(match(0.95, MatchBand.STRONG), new EffectiveInterest(50, 100, false))))
+                .build());
+
+        assertThat(r.decision()).isEqualTo(Decision.FAIL);
+    }
+
+    @Test
+    void aStrongUpstreamMatchHoldingControlFailsAutomatically() {
+        ScoreResult r = scorer.score(clean().screenings(List.of(
+                        company(), upstream(match(0.95, MatchBand.STRONG), new EffectiveInterest(100, 100, true))))
+                .build());
+
+        assertThat(r.decision()).isEqualTo(Decision.FAIL);
+        assertThat(only(r, FactorCode.SANCTIONS_STRONG_MATCH).detail()).containsIgnoringCase("control");
+    }
+
+    @Test
+    void aStrongUpstreamMatchThatMightHoldHalfGoesToReviewAndShowsTheCalculation() {
+        EffectiveInterest interest = new EffectiveInterest(37.5, 75, false);
+
+        ScoreResult r =
+                scorer.score(clean().screenings(List.of(company(), upstream(match(0.95, MatchBand.STRONG), interest)))
+                        .build());
+
+        Factor f = only(r, FactorCode.SANCTIONS_STRONG_MATCH);
+        assertThat(r.decision()).isEqualTo(Decision.REVIEW);
+        assertThat(f.autoFail()).isFalse();
+        assertThat(f.points()).isEqualTo(40);
+        assertThat(f.ownership()).isEqualTo(interest);
+        assertThat(f.detail()).contains("37.5").contains("75");
+    }
+
+    /** A strong sanctions match is never scored away, however small the stake looks. */
+    @Test
+    void aStrongUpstreamMatchBelowHalfStillGoesToReview() {
+        ScoreResult r = scorer.score(clean().screenings(List.of(
+                        company(), upstream(match(0.95, MatchBand.STRONG), new EffectiveInterest(6.25, 25, false))))
+                .build());
+
+        assertThat(r.decision()).isEqualTo(Decision.REVIEW);
+        assertThat(only(r, FactorCode.SANCTIONS_STRONG_MATCH).autoFail()).isFalse();
+    }
+
+    @Test
+    void significantInfluenceAloneCanOnlyReachReview() {
+        ScoreResult r = scorer.score(clean().screenings(List.of(
+                        company(), upstream(match(0.95, MatchBand.STRONG), new EffectiveInterest(0, 100, false))))
+                .build());
+
+        assertThat(r.decision()).isEqualTo(Decision.REVIEW);
+        assertThat(only(r, FactorCode.SANCTIONS_STRONG_MATCH).autoFail()).isFalse();
+    }
+
+    @Test
+    void reviewPointsAddToOtherRisksLikeAnyOthers() {
+        ScoreResult r = scorer.score(clean().status("dissolved")
+                .screenings(List.of(
+                        company(), upstream(match(0.95, MatchBand.STRONG), new EffectiveInterest(37.5, 75, false))))
+                .build());
+
+        assertThat(r.score()).isEqualTo(90);
+        assertThat(r.decision()).isEqualTo(Decision.FAIL);
+    }
+
+    /** The 50% rule is about owners. It must never soften a match on a director or a direct PSC. */
+    @Test
+    void aStrongMatchOnADirectSubjectStillFailsWhateverItHolds() {
+        ScoreResult r = scorer.score(clean().screenings(List.of(
+                        company(),
+                        screened(List.of("PSC"), "Mr Ivan Petrov", "1971-03", match(0.95, MatchBand.STRONG))))
+                .build());
+
+        Factor f = only(r, FactorCode.SANCTIONS_STRONG_MATCH);
+        assertThat(r.decision()).isEqualTo(Decision.FAIL);
+        assertThat(f.autoFail()).isTrue();
+        assertThat(f.ownership()).isNull();
+    }
+
+    @Test
+    void aPossibleUpstreamMatchScoresTheSameAsADirectOneWithTheBoundsInTheEvidence() {
+        EffectiveInterest small = new EffectiveInterest(6.25, 25, false);
+        Factor direct = only(
+                scorer.score(clean().screenings(List.of(
+                                company(),
+                                screened(List.of("PSC"), "Mr Ivan Petrov", "1971-03", match(0.85, MatchBand.POSSIBLE))))
+                        .build()),
+                FactorCode.SANCTIONS_POSSIBLE_MATCH);
+
+        Factor upstream = only(
+                scorer.score(clean().screenings(List.of(company(), upstream(match(0.85, MatchBand.POSSIBLE), small)))
+                        .build()),
+                FactorCode.SANCTIONS_POSSIBLE_MATCH);
+
+        assertThat(upstream.points()).isEqualTo(direct.points());
+        assertThat(upstream.ownership()).isEqualTo(small);
+        assertThat(upstream.detail()).contains("6.25").contains("25");
+    }
+
+    // ---------- where an ownership chain stopped (ADR-0002) ----------
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FOREIGN", "UNRESOLVED", "NO_PSCS", "SUPER_SECURE", "UNAVAILABLE"})
+    void anOpaqueEndScoresAndNamesTheOwner(String reason) {
+        Factor f = only(
+                scorer.score(clean().ownershipStops(stop(StopReason.valueOf(reason), "FAR AWAY LTD"))
+                        .build()),
+                FactorCode.OPAQUE_OWNERSHIP);
+
+        assertThat(f.points()).isEqualTo(15);
+        assertThat(f.autoFail()).isFalse();
+        assertThat(f.detail()).contains("FAR AWAY LTD");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DEPTH_LIMIT", "COMPANY_LIMIT"})
+    void reachingALimitScores(String reason) {
+        Factor f = only(
+                scorer.score(clean().ownershipStops(stop(StopReason.valueOf(reason), "TOO FAR LTD"))
+                        .build()),
+                FactorCode.OWNERSHIP_LIMIT_REACHED);
+
+        assertThat(f.points()).isEqualTo(15);
+        assertThat(f.detail()).contains("TOO FAR LTD");
+    }
+
+    @Test
+    void aCycleScoresMoreThanAGap() {
+        Factor f = only(
+                scorer.score(clean().ownershipStops(stop(StopReason.CIRCULAR, "LOOP LTD"))
+                        .build()),
+                FactorCode.CIRCULAR_OWNERSHIP);
+
+        assertThat(f.points()).isEqualTo(25);
+        assertThat(f.detail()).contains("LOOP LTD");
+    }
+
+    @Test
+    void severalChainsOfTheSameKindAreOneFactorListingThemAll() {
+        ScoreResult r = scorer.score(clean().ownershipStops(
+                        stop(StopReason.FOREIGN, "FIRST S.A."), stop(StopReason.UNRESOLVED, "SECOND LTD"))
+                .build());
+
+        Factor f = only(r, FactorCode.OPAQUE_OWNERSHIP);
+        assertThat(f.points()).isEqualTo(15);
+        assertThat(f.detail()).contains("FIRST S.A.").contains("SECOND LTD");
+    }
+
+    /** Listed groups are exempt from declaring PSCs, so this is a clean end, not a gap. */
+    @Test
+    void anExemptParentIsANoteNotAFactor() {
+        ScoreResult r = scorer.score(clean().ownershipStops(stop(StopReason.EXEMPT, "LISTED GROUP PLC"))
+                .build());
+
+        assertThat(r.factors()).isEmpty();
+        assertThat(r.decision()).isEqualTo(Decision.PASS);
+        assertThat(r.notes()).anyMatch(n -> n.contains("LISTED GROUP PLC"));
+    }
+
+    /** A UK subsidiary of a foreign group is common: it should show, without needing a person. */
+    @Test
+    void aForeignParentAddsToTheOffshoreFactorButDoesNotReachReviewAlone() {
+        ScoreResult r = scorer.score(clean().pscs(List.of(corporatePsc("OFFSHORE HOLDINGS S.A.", "Panama", null)))
+                .ownershipStops(stop(StopReason.FOREIGN, "OFFSHORE HOLDINGS S.A."))
+                .build());
+
+        assertThat(codes(r)).contains(FactorCode.CORPORATE_PSC_OFFSHORE, FactorCode.OPAQUE_OWNERSHIP);
+        assertThat(r.score()).isEqualTo(25);
+        assertThat(r.decision()).isEqualTo(Decision.PASS);
+    }
+
     // ---------- builders ----------
 
     static Inputs clean() {
@@ -452,6 +644,12 @@ class RiskScorerTest {
         FcaAssessment fca = RiskScorerTest.fca(null, List.of());
         List<SubjectScreening> screenings =
                 List.of(company(), screened(List.of("DIRECTOR", "PSC"), "JONES, Sarah", "1980-05", null));
+        List<ChainStop> ownershipStops = List.of();
+
+        Inputs ownershipStops(ChainStop... stops) {
+            ownershipStops = List.of(stops);
+            return this;
+        }
 
         Inputs status(String s) {
             status = s;
@@ -524,7 +722,8 @@ class RiskScorerTest {
                     fca,
                     screenings,
                     "v-test",
-                    AS_OF);
+                    AS_OF,
+                    ownershipStops);
         }
     }
 
@@ -543,6 +742,7 @@ class RiskScorerTest {
                 LocalDate.of(2016, 6, 30),
                 ceased,
                 null,
+                null,
                 List.of("ownership-of-shares-75-to-100-percent"));
     }
 
@@ -556,6 +756,7 @@ class RiskScorerTest {
                 LocalDate.of(2018, 1, 1),
                 ceased,
                 country,
+                null,
                 List.of("ownership-of-shares-50-to-75-percent"));
     }
 
@@ -600,7 +801,15 @@ class RiskScorerTest {
     }
 
     static SubjectScreening screened(List<String> roles, String name, String birthMonth, ScreeningMatch match) {
-        return new SubjectScreening(roles, name, birthMonth, match);
+        return new SubjectScreening(roles, name, birthMonth, match, null);
+    }
+
+    static SubjectScreening upstream(ScreeningMatch match, EffectiveInterest interest) {
+        return new SubjectScreening(List.of("UPSTREAM_PSC"), "Mr Ivan Petrov", "1971-03", match, interest);
+    }
+
+    static ChainStop stop(StopReason reason, String owner) {
+        return new ChainStop(reason, owner, "stopped at " + owner);
     }
 
     static ScreeningMatch match(double similarity, MatchBand band) {
