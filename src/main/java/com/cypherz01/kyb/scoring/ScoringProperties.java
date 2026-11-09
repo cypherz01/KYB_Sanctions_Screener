@@ -23,9 +23,17 @@ public record ScoringProperties(
         OfficerChurn officerChurn,
         List<String> inactiveStatuses,
         List<String> ukCountries,
-        Map<String, String> regulatedSicCodes) {
+        Map<String, String> regulatedSicCodes,
+        Ownership ownership) {
 
     public record Thresholds(int review, int fail) {}
 
     public record OfficerChurn(int windowDays, int minChanges) {}
+
+    /**
+     * @param failAtPercent the lower bound at which a strong upstream match fails automatically
+     * @param maxDepth how many levels above the company to fetch; 1 means only its direct parents
+     * @param maxCompanies how many parent companies one check may fetch
+     */
+    public record Ownership(double failAtPercent, int maxDepth, int maxCompanies) {}
 }

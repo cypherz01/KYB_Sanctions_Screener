@@ -28,6 +28,12 @@ class ScoringRulesConfigTest {
         assertThat(props.points().get(FactorCode.CIRCULAR_OWNERSHIP)).isEqualTo(25);
     }
 
+    /** These change decisions, so they live with the rules whose version is recorded on every check. */
+    @Test
+    void theOwnershipThresholdAndLimitsAreVersionedRules() {
+        assertThat(props.ownership()).isEqualTo(new ScoringProperties.Ownership(50, 5, 25));
+    }
+
     @Test
     void usesTheSpecDefaults() {
         assertThat(props.thresholds().review()).isEqualTo(40);

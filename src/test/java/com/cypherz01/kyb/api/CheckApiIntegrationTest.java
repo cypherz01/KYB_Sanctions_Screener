@@ -138,8 +138,8 @@ class CheckApiIntegrationTest {
         assertThat(body.path("companyName").asText()).isEqualTo("ACME WIDGETS LTD");
         assertThat(body.path("thresholds").path("review").asInt()).isEqualTo(40);
         assertThat(body.path("thresholds").path("fail").asInt()).isEqualTo(80);
-        assertThat(body.path("scoringConfigVersion").asText()).isEqualTo("2026-11-09");
-        assertThat(body.path("engineVersion").asText()).startsWith("2.0.0");
+        assertThat(body.path("scoringConfigVersion").asText()).isEqualTo("2026-11-09.2");
+        assertThat(body.path("engineVersion").asText()).startsWith("2.1.0");
         assertThat(body.path("requestedAt").asText()).isNotBlank();
         assertThat(body.path("completedAt").asText()).isNotBlank();
         // company, the director-and-PSC once, the secretary
@@ -185,8 +185,8 @@ class CheckApiIntegrationTest {
         assertThat(row.get("company_number")).isEqualTo(SANCTIONED);
         assertThat(row.get("decision")).isEqualTo("FAIL");
         assertThat(row.get("sanctions_dataset_version_id")).isEqualTo(active);
-        assertThat(row.get("scoring_config_version")).isEqualTo("2026-11-09");
-        assertThat((String) row.get("engine_version")).startsWith("2.0.0");
+        assertThat(row.get("scoring_config_version")).isEqualTo("2026-11-09.2");
+        assertThat((String) row.get("engine_version")).startsWith("2.1.0");
         assertThat(row.get("requested")).isEqualTo(SANCTIONED);
     }
 

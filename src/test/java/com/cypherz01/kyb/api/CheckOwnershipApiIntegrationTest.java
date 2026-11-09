@@ -491,6 +491,174 @@ class CheckOwnershipApiIntegrationTest {
                 .hasSize(25);
     }
 
+    // ---------- found by checking real companies and by code review ----------
+
+    /** HSBC Holdings is published with the country "Gbr" and a place of "United Kingdom". */
+    @Test
+    void aUkOwnerWhoseCountryIsGivenAsGbrIsFollowed() throws Exception {
+        target(foreignCompany("HARBOUR HOLDINGS LTD", "Gbr", HOLDCO, BAND_75));
+        parent(HOLDCO, "HARBOUR HOLDINGS LTD", CLEAN);
+
+        JsonNode check = check(TARGET);
+
+        assertThat(codes(check)).doesNotContain("OPAQUE_OWNERSHIP", "CORPORATE_PSC_OFFSHORE");
+        wm.verify(1, getRequestedFor(urlPathEqualTo("/company/" + HOLDCO)));
+    }
+
+    /** A charity's number, say, can be padded into the number of a company with no link to it. */
+    @Test
+    void aNumberBelongingToAnUnrelatedCompanyIsOpaqueAndItsOwnersAreNotScreened() throws Exception {
+        target(company("ST MARYS HOSPICE TRUST", HOLDCO, BAND_75));
+        parent(HOLDCO, "UNRELATED ENGINEERING LTD", SANCTIONED);
+
+        String stored = run(TARGET);
+        JsonNode check = json.readTree(stored);
+
+        assertThat(check.path("decision").asText()).isEqualTo("PASS");
+        assertThat(codes(check)).contains("OPAQUE_OWNERSHIP");
+        JsonNode stop = stopOf(check, "ST MARYS HOSPICE TRUST");
+        assertThat(stop.path("reason").asText()).isEqualTo("UNRESOLVED");
+        assertThat(stop.path("detail").asText()).contains("UNRELATED ENGINEERING LTD");
+        assertThat(subject(check, "Mr Ivan Petrov").isMissingNode()).isTrue();
+        assertReplaysIdenticallyWithNoUpstream(stored);
+    }
+
+    @Test
+    void aSmallDifferenceInTheNameIsStillTheSameCompany() throws Exception {
+        target(company("HARBOUR HOLDING LIMITED", HOLDCO, BAND_75));
+        parent(HOLDCO, "HARBOUR HOLDINGS LTD", SANCTIONED);
+
+        JsonNode check = check(TARGET);
+
+        assertThat(codes(check)).doesNotContain("OPAQUE_OWNERSHIP");
+        assertThat(check.path("decision").asText()).isEqualTo("FAIL");
+    }
+
+    @Test
+    void anUpperCompanysRegisteredNameIsScreenedAsWellAsTheNameOnThePscEntry() throws Exception {
+        target(company("HARBOUR HOLDINGS LTD", HOLDCO, BAND_75));
+        parent(HOLDCO, "HARBOUR HOLDINGS LTD", company("ZARYA HOLDING LIMITED", TOPCO, BAND_75));
+        parent(TOPCO, "ZARYA HOLDINGS LTD", CLEAN);
+
+        JsonNode check = check(TARGET);
+
+        JsonNode registered = subject(check, "ZARYA HOLDINGS LTD");
+        assertThat(registered.isMissingNode()).isFalse();
+        assertThat(registered.path("matches").size()).isPositive();
+        assertThat(registered.path("roles").toString()).contains("INTERMEDIATE_COMPANY");
+    }
+
+    /** The name a direct parent files under is as much at the first level as its PSC entry. */
+    @Test
+    void aDirectParentsRegisteredNameIsTreatedAsDirect() throws Exception {
+        target(company("ZARYA HOLDING LIMITED", HOLDCO, BAND_25));
+        parent(HOLDCO, "ZARYA HOLDINGS LTD", CLEAN);
+
+        JsonNode check = check(TARGET);
+
+        assertThat(subject(check, "ZARYA HOLDINGS LTD").isMissingNode()).isFalse();
+        assertThat(check.path("decision").asText()).isEqualTo("FAIL");
+        assertThat(factors(check, "SANCTIONS_STRONG_MATCH"))
+                .allSatisfy(f -> assertThat(f.path("autoFail").asBoolean()).isTrue());
+    }
+
+    /** Exemptions only matter when a parent declares nobody, so losing them must not lose owners. */
+    @Test
+    void anExemptionsOutageDoesNotHideOwnersWhoLoaded() throws Exception {
+        target(company("HARBOUR HOLDINGS LTD", HOLDCO, BAND_75));
+        parent(HOLDCO, "HARBOUR HOLDINGS LTD", SANCTIONED);
+        wm.stubFor(get(urlPathEqualTo("/company/" + HOLDCO + "/exemptions"))
+                .willReturn(aResponse().withStatus(503)));
+
+        String stored = run(TARGET);
+        JsonNode check = json.readTree(stored);
+
+        assertThat(check.path("decision").asText()).isEqualTo("FAIL");
+        assertThat(codes(check)).doesNotContain("OPAQUE_OWNERSHIP");
+        assertReplaysIdenticallyWithNoUpstream(stored);
+    }
+
+    @Test
+    void anExemptionsOutageAtAParentDeclaringNobodyIsOpaque() throws Exception {
+        target(company("HARBOUR HOLDINGS LTD", HOLDCO, BAND_75));
+        parent(HOLDCO, "HARBOUR HOLDINGS LTD");
+        wm.stubFor(get(urlPathEqualTo("/company/" + HOLDCO + "/exemptions"))
+                .willReturn(aResponse().withStatus(503)));
+
+        String stored = run(TARGET);
+        JsonNode check = json.readTree(stored);
+
+        assertThat(stopOf(check, "HARBOUR HOLDINGS LTD").path("reason").asText())
+                .isEqualTo("UNAVAILABLE");
+        assertReplaysIdenticallyWithNoUpstream(stored);
+    }
+
+    /** Without a profile the name cannot be checked, but owners who loaded are still screened. */
+    @Test
+    void aProfileOutageDoesNotHideOwnersWhoLoaded() throws Exception {
+        target(company("HARBOUR HOLDINGS LTD", HOLDCO, BAND_75));
+        parent(HOLDCO, "HARBOUR HOLDINGS LTD", SANCTIONED);
+        wm.stubFor(
+                get(urlPathEqualTo("/company/" + HOLDCO)).willReturn(aResponse().withStatus(503)));
+
+        String stored = run(TARGET);
+        JsonNode check = json.readTree(stored);
+
+        assertThat(check.path("decision").asText()).isEqualTo("FAIL");
+        assertThat(check.path("notes").toString()).contains("HARBOUR HOLDINGS LTD");
+        assertReplaysIdenticallyWithNoUpstream(stored);
+    }
+
+    @Test
+    void everyNationalityPublishedForAnUpstreamOwnerIsCompared() throws Exception {
+        target(company("HARBOUR HOLDINGS LTD", HOLDCO, BAND_75), company("OAKWELL HOLDINGS LTD", OTHER, BAND_75));
+        parent(HOLDCO, "HARBOUR HOLDINGS LTD", person("Mr Ivan Petrov", 1971, 3, "British", BAND_75));
+        parent(OTHER, "OAKWELL HOLDINGS LTD", person("Mr Ivan Petrov", 1971, 3, "Russian", BAND_75));
+
+        JsonNode check = check(TARGET);
+
+        assertThat(factor(check, "SANCTIONS_STRONG_MATCH")
+                        .path("match")
+                        .path("evidence")
+                        .toString())
+                .contains("Nationality matches (RU)");
+    }
+
+    /** One name in two countries is two companies: stakes must not add, and both chains are listed. */
+    @Test
+    void foreignOwnersWithTheSameNameInDifferentCountriesStaySeparate() throws Exception {
+        target(
+                foreignCompany("GLOBEX INC", "Panama", "1", BAND_25),
+                foreignCompany("GLOBEX INC", "Cyprus", "2", BAND_25));
+
+        JsonNode check = check(TARGET);
+
+        assertThat(names(check.path("ownership")))
+                .filteredOn("GLOBEX INC"::equals)
+                .hasSize(2);
+        assertThat(check.path("ownership").path("nodes"))
+                .filteredOn(n -> n.path("name").asText().equals("GLOBEX INC"))
+                .allSatisfy(
+                        n -> assertThat(n.path("effective").path("upperPercent").asDouble())
+                                .isEqualTo(50.0));
+        assertThat(factor(check, "OPAQUE_OWNERSHIP").path("detail").asText())
+                .contains("Panama")
+                .contains("Cyprus");
+    }
+
+    @Test
+    void anUnknownNatureIsNotedEvenWhenAnotherOnTheSamePscIsUnderstood() throws Exception {
+        target(
+                """
+                {"name":"Mrs Sarah Jones","kind":"individual-person-with-significant-control","nationality":"British",
+                 "date_of_birth":{"month":5,"year":1980},"notified_on":"2016-06-30",
+                 "natures_of_control":["%s","a-nature-nobody-has-seen"]}
+                """
+                        .formatted(BAND_75));
+
+        assertThat(check(TARGET).path("notes").toString()).contains("a-nature-nobody-has-seen");
+    }
+
     // ---------- the response and the record ----------
 
     @Test
@@ -576,7 +744,7 @@ class CheckOwnershipApiIntegrationTest {
         JsonNode result = replay.path("result");
         assertThat(replay.path("identical").asBoolean()).isFalse();
         assertThat(replay.path("original").path("engineVersion").asText()).startsWith("1.0.0");
-        assertThat(replay.path("replayed").path("engineVersion").asText()).startsWith("2.0.0");
+        assertThat(replay.path("replayed").path("engineVersion").asText()).startsWith("2.1.0");
         assertThat(paths(replay)).contains("engineVersion").anyMatch(p -> p.startsWith("ownership"));
         assertThat(result.path("notes").toString()).contains("ownership look-through not performed at check time");
         assertThat(result.path("ownership").path("performed").asBoolean()).isFalse();
@@ -749,7 +917,7 @@ class CheckOwnershipApiIntegrationTest {
                     sanctions_dataset_version_id, scoring_config_version, engine_version, request, response)
                 SELECT ?::uuid, company_number, requested_at, completed_at, decision, score,
                     sanctions_dataset_version_id, scoring_config_version, '1.0.0+normaliser.1', request,
-                    replace(replace((response::jsonb - 'ownership')::text, ?, ?), '2.0.0+', '1.0.0+')::json
+                    replace(replace((response::jsonb - 'ownership')::text, ?, ?), '2.1.0+', '1.0.0+')::json
                   FROM kyb_check WHERE id = ?::uuid
                 """,
                 copy,

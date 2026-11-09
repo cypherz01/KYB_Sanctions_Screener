@@ -158,7 +158,7 @@ class RiskScorerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"England", "United Kingdom", "SCOTLAND", "England And Wales"})
+    @ValueSource(strings = {"England", "United Kingdom", "SCOTLAND", "England And Wales", "Gbr"})
     void aUkCorporatePscDoesNotScore(String country) {
         assertThat(codes(scorer.score(clean().pscs(List.of(corporatePsc("UK HOLDINGS LTD", country, null)))
                         .build())))
@@ -427,7 +427,8 @@ class RiskScorerTest {
                 props.officerChurn(),
                 props.inactiveStatuses(),
                 props.ukCountries(),
-                props.regulatedSicCodes());
+                props.regulatedSicCodes(),
+                props.ownership());
 
         ScoreResult r = new RiskScorer(custom, 0.80, 0.90)
                 .score(clean().status("dissolved").build());
@@ -435,6 +436,29 @@ class RiskScorerTest {
         assertThat(r.score()).isEqualTo(99);
         assertThat(r.decision()).isEqualTo(Decision.FAIL);
         assertThat(r.scoringConfigVersion()).isEqualTo("custom");
+    }
+
+    @Test
+    void theOwnershipThresholdComesFromConfig() {
+        ScoringProperties custom = new ScoringProperties(
+                "custom",
+                props.thresholds(),
+                props.points(),
+                props.sanctionsPossibleScale(),
+                props.recentlyIncorporatedDays(),
+                props.officerChurn(),
+                props.inactiveStatuses(),
+                props.ukCountries(),
+                props.regulatedSicCodes(),
+                new ScoringProperties.Ownership(25, 5, 25));
+
+        ScoreResult r = new RiskScorer(custom, 0.80, 0.90)
+                .score(clean().screenings(List.of(
+                                company(),
+                                upstream(match(0.95, MatchBand.STRONG), new EffectiveInterest(37.5, 75, false))))
+                        .build());
+
+        assertThat(r.decision()).isEqualTo(Decision.FAIL);
     }
 
     // ---------- a sanctions match above the first level (ADR-0003) ----------
